@@ -23,6 +23,22 @@ except Exception:
 
 from rank_bm25 import BM25Okapi
 
+# 本地开发时从 .env 读取密钥（手写解析，不依赖第三方包，避免安装/网络问题）
+# 用 setdefault，不会覆盖 Render 等平台已注入的环境变量
+def _load_local_env():
+    env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+    if not os.path.exists(env_path):
+        return
+    with open(env_path, encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            k, v = k.strip(), v.strip().strip('"').strip("'")
+            os.environ.setdefault(k, v)
+_load_local_env()
+
 BASE = os.path.dirname(os.path.abspath(__file__))
 KB_DIR = os.path.join(BASE, "kb", "text")
 STATIC_DIR = os.path.join(BASE, "static")
@@ -71,17 +87,24 @@ def load_kb():
     _bm25 = BM25Okapi(corpus)
     print(f"[KB] 已加载 {len(files)} 篇文档, {len(_chunks)} 个片段")
 
-def retrieve(query, k=TOP_K):
+def retrieve(query, k=TOP_K, max_per_source=2):
     if _bm25 is None:
         return []
     scores = _bm25.get_scores(tokenize(query))
     ranked = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)
     out = []
-    for i in ranked[:k]:
+    per_source = {}
+    for i in ranked:
         if scores[i] <= 0:
             continue
         c = _chunks[i]
+        cnt = per_source.get(c["source"], 0)
+        if cnt >= max_per_source:
+            continue
+        per_source[c["source"]] = cnt + 1
         out.append({"source": c["source"], "text": c["text"], "score": float(scores[i])})
+        if len(out) >= k:
+            break
     return out
 
 # ---- 时效性判断 ----
@@ -271,6 +294,15 @@ def index():
 def health():
     return json.dumps({"status": "ok", "kb_chunks": len(_chunks),
                        "web": WEB_SEARCH_ENABLED, "key": bool(DEEPSEEK_API_KEY)})
+
+@app.route("/api/reload", methods=["POST"])
+def reload_kb():
+    """热重载知识库：kb/text 文件更新后（如本地同步后），无需重启服务即可生效。"""
+    try:
+        load_kb()
+        return json.dumps({"status": "ok", "kb_chunks": len(_chunks)})
+    except Exception as e:
+        return json.dumps({"status": "error", "message": str(e)})
 
 @app.route("/api/ask", methods=["POST"])
 def ask():
