@@ -33,8 +33,13 @@
   .msg.user{align-self:flex-end;background:var(--brand);color:#fff;border-bottom-right-radius:4px}
   .msg.bot{align-self:flex-start;background:var(--card);border:1px solid var(--line);
     border-bottom-left-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
-  .msg.bot h1,.msg.bot h2,.msg.bot h3{font-size:15px;margin:.4em 0}
-  .msg.bot ul,.msg.bot ol{margin:.3em 0;padding-left:1.3em}
+  .msg.bot > *:first-child{margin-top:0}
+  .msg.bot > *:last-child{margin-bottom:0}
+  .msg.bot p{margin:.35em 0}
+  .msg.bot h1,.msg.bot h2,.msg.bot h3{font-size:15px;margin:.55em 0 .25em;line-height:1.4}
+  .msg.bot ul,.msg.bot ol{margin:.3em 0;padding-left:1.35em}
+  .msg.bot li{margin:.12em 0;line-height:1.55}
+  .msg.bot li > p{margin:.1em 0}
   .msg.bot a{color:var(--brand)}
   .msg.bot code{background:#f0f1f3;padding:1px 4px;border-radius:4px;font-size:13px}
   .msg.bot pre{background:#f0f1f3;padding:10px;border-radius:8px;overflow-x:auto}
