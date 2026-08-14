@@ -88,8 +88,12 @@ def load_kb():
     print(f"[KB] 已加载 {len(files)} 篇文档, {len(_chunks)} 个片段")
 
 def retrieve(query, k=TOP_K, max_per_source=2):
+    # 懒加载：gunicorn 多 worker 时每个 worker 进程独立加载 KB，
+    # 第一个接到请求的 worker 若尚未加载则补一次，避免空 KB 命中
     if _bm25 is None:
-        return []
+        load_kb()
+        if _bm25 is None:
+            return []
     scores = _bm25.get_scores(tokenize(query))
     ranked = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)
     out = []

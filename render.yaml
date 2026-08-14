@@ -6,7 +6,7 @@ services:
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: python app.py
+    startCommand: gunicorn -w 1 -k gthread -b 0.0.0.0:$PORT app:app
     healthCheckPath: /api/health
     envVars:
       - key: PORT
