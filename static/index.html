@@ -38,7 +38,7 @@
   #toolbar{background:var(--card);border-bottom:1px solid var(--line);overflow:hidden;
     max-height:0;transition:max-height .26s ease;display:flex;flex-wrap:wrap;gap:8px;
     padding:0 12px;z-index:2}
-  #toolbar.open{max-height:130px;padding:10px 12px}
+  #toolbar.open{max-height:300px;padding:10px 12px;overflow-y:auto}
   .tool{flex:1 1 40%;min-width:84px;background:var(--bg);border:1px solid var(--line);
     color:var(--text);font-size:13px;padding:9px 6px;border-radius:10px;text-align:center;
     display:flex;align-items:center;justify-content:center;gap:5px}
@@ -98,6 +98,25 @@
     opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:10;max-width:80%;
     text-align:center}
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  /* 生成器底部弹层 */
+  #genMask{position:fixed;inset:0;background:rgba(0,0,0,.35);opacity:0;pointer-events:none;
+    transition:opacity .25s;z-index:19}
+  #genMask.open{opacity:1;pointer-events:auto}
+  #genSheet{position:fixed;left:0;right:0;bottom:0;background:var(--card);z-index:20;
+    border-radius:16px 16px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));
+    box-shadow:0 -4px 18px rgba(0,0,0,.14);display:flex;flex-direction:column;gap:10px;
+    transform:translateY(100%);transition:transform .25s ease}
+  #genSheet.open{transform:translateY(0)}
+  #genSheet h3{margin:0;font-size:16px;font-weight:600}
+  #genSheet .ghint{font-size:12px;color:var(--sub);margin-top:-4px}
+  #genInput{flex:1;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:15px;
+    outline:none;font-family:inherit;background:var(--bg);resize:none;min-height:64px;max-height:140px}
+  #genInput:focus{border-color:var(--brand)}
+  #genSheet .grow{display:flex;gap:8px;margin-top:2px}
+  .gbtn{flex:1;height:44px;border:none;border-radius:12px;font-size:15px;font-weight:600}
+  .gbtn.go{background:var(--brand);color:#fff}
+  .gbtn.cancel{background:var(--bg);color:var(--text);border:1px solid var(--line)}
 </style>
 </head>
 <body>
@@ -112,6 +131,9 @@
   <button class="tool" id="tExport"><span class="ic">📤</span>导出对话</button>
   <button class="tool" id="tSrc"><span class="ic">📚</span>显示参考</button>
   <button class="tool" id="tClear"><span class="ic">🗑️</span>清空对话</button>
+  <button class="tool" id="tScript"><span class="ic">💬</span>场景话术</button>
+  <button class="tool" id="tFlow"><span class="ic">🪜</span>流程步骤</button>
+  <button class="tool" id="tCard"><span class="ic">🃏</span>产品速查</button>
 </div>
 
 <div id="chat">
@@ -134,6 +156,17 @@
   <textarea id="q" rows="1" placeholder="输入你的问题…"></textarea>
   <button id="send">发送</button>
 </footer>
+
+<div id="genMask"></div>
+<div id="genSheet">
+  <h3 id="genTitle">场景话术生成</h3>
+  <div class="ghint" id="genHint"></div>
+  <textarea id="genInput" placeholder="请输入…"></textarea>
+  <div class="grow">
+    <button class="gbtn cancel" id="genCancel">取消</button>
+    <button class="gbtn go" id="genGo">生成</button>
+  </div>
+</div>
 
 <div id="toast"></div>
 
@@ -282,6 +315,40 @@ document.getElementById('tSrc').onclick=(ev)=>{
   });
   toast(showSrc?'已显示参考来源':'已隐藏参考来源'); toolsBtn.click();
 };
+
+/* ---------- 生成器：场景话术 / 流程步骤 / 产品速查 ---------- */
+const genSheet=document.getElementById('genSheet');
+const genMask=document.getElementById('genMask');
+const genTitle=document.getElementById('genTitle');
+const genHint=document.getElementById('genHint');
+const genInput=document.getElementById('genInput');
+let genBuilder=null;
+const GEN={
+  script:{title:'场景话术生成', hint:'描述场景，例如：向社区便利店老板介绍喜客丸并谈合作',
+    build:s=>`请为以下场景生成一段可直接使用的沟通话术：\n场景：${s}\n要求：口语化、自然、符合泌园春/喜客丸品牌调性；按"开场—介绍—利益点—促成"四段组织；基于内部资料库，不确定的标注待核实。`},
+  flow:{title:'流程步骤卡', hint:'描述要拆解的流程，例如：新员工办理预包装食品经营备案',
+    build:s=>`请把"${s}"整理成一张清晰的流程步骤卡：分步骤编号、每步一句话说明、标注关键注意点/所需材料；基于内部资料库，不确定的标注待核实。`},
+  card:{title:'产品速查卡', hint:'填产品/品牌名，例如：喜客丸',
+    build:s=>`请为"${s}"生成一张产品速查卡：①一句话定位 ②核心卖点(3-5条) ③适用人群 ④常见问答(3条)。基于内部资料库，不确定的标注待核实。`}
+};
+function openGen(key){
+  const g=GEN[key]; if(!g)return;
+  genBuilder=g.build; genTitle.textContent=g.title; genHint.textContent=g.hint;
+  genInput.value=''; genInput.placeholder='请输入：'+g.hint;
+  genSheet.classList.add('open'); genMask.classList.add('open');
+  toolsBtn.click(); setTimeout(()=>genInput.focus(),260);
+}
+function closeGen(){genSheet.classList.remove('open');genMask.classList.remove('open');}
+document.getElementById('tScript').onclick=()=>openGen('script');
+document.getElementById('tFlow').onclick=()=>openGen('flow');
+document.getElementById('tCard').onclick=()=>openGen('card');
+genMask.onclick=closeGen;
+document.getElementById('genCancel').onclick=closeGen;
+document.getElementById('genGo').onclick=()=>{
+  const s=genInput.value.trim(); if(!s){toast('请先填写内容');return;}
+  const prompt=genBuilder(s); closeGen(); ask(prompt);
+};
+genInput.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();document.getElementById('genGo').click();}});
 
 /* ---------- 输入交互 ---------- */
 send.onclick=()=>ask(q.value);
