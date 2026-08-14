@@ -1,4 +1,5 @@
 flask
+gunicorn
 requests
 rank_bm25
 beautifulsoup4
