@@ -21,12 +21,30 @@
   header{
     background:linear-gradient(135deg,var(--brand),var(--brand-d));
     color:#fff;padding:14px 16px;display:flex;align-items:center;gap:10px;
-    box-shadow:0 2px 8px rgba(0,0,0,.08);z-index:2;
+    box-shadow:0 2px 8px rgba(0,0,0,.08);z-index:3;
   }
   header .logo{width:34px;height:34px;border-radius:9px;background:rgba(255,255,255,.2);
     display:flex;align-items:center;justify-content:center;font-size:18px}
+  header .tbox{flex:1;min-width:0}
   header h1{font-size:16px;margin:0;font-weight:600}
   header p{font-size:11px;margin:2px 0 0;opacity:.85}
+  header #toolsBtn{margin-left:auto;background:rgba(255,255,255,.18);border:none;color:#fff;
+    width:36px;height:36px;border-radius:10px;font-size:18px;flex:0 0 auto;display:flex;
+    align-items:center;justify-content:center;transition:background .15s}
+  header #toolsBtn:active{background:rgba(255,255,255,.34)}
+  header #toolsBtn.on{background:rgba(255,255,255,.34)}
+
+  /* 可折叠工具栏：默认收起，展开收纳小功能 */
+  #toolbar{background:var(--card);border-bottom:1px solid var(--line);overflow:hidden;
+    max-height:0;transition:max-height .26s ease;display:flex;flex-wrap:wrap;gap:8px;
+    padding:0 12px;z-index:2}
+  #toolbar.open{max-height:130px;padding:10px 12px}
+  .tool{flex:1 1 40%;min-width:84px;background:var(--bg);border:1px solid var(--line);
+    color:var(--text);font-size:13px;padding:9px 6px;border-radius:10px;text-align:center;
+    display:flex;align-items:center;justify-content:center;gap:5px}
+  .tool:active{background:#fff2ef;border-color:#f6d6cf;color:var(--brand-d)}
+  .tool.active{background:#fff2ef;border-color:var(--brand);color:var(--brand-d)}
+
   #chat{flex:1;overflow-y:auto;padding:14px 12px 8px;display:flex;flex-direction:column;gap:12px}
   .msg{max-width:88%;padding:10px 13px;border-radius:14px;line-height:1.6;font-size:15px;
     word-break:break-word;white-space:pre-wrap}
@@ -51,6 +69,13 @@
   .typing i{width:6px;height:6px;border-radius:50%;background:var(--sub);animation:bl 1s infinite}
   .typing i:nth-child(2){animation-delay:.2s}.typing i:nth-child(3){animation-delay:.4s}
   @keyframes bl{0%,60%,100%{opacity:.3}30%{opacity:1}}
+
+  /* 每条 AI 回复下方的操作条（仅复制，保持极简） */
+  .macts{display:flex;gap:8px;align-self:flex-start;margin:-4px 0 2px;padding-left:2px}
+  .mact{font-size:12px;color:var(--brand-d);background:#fff2ef;border:1px solid #f6d6cf;
+    padding:3px 10px;border-radius:14px;line-height:1.4}
+  .mact:active{background:#f6d6cf}
+
   .chips{display:flex;gap:8px;overflow-x:auto;padding:0 12px 8px;scrollbar-width:none}
   .chips::-webkit-scrollbar{display:none}
   .chip{flex:0 0 auto;background:var(--card);border:1px solid var(--line);color:var(--brand-d);
@@ -66,13 +91,28 @@
   #send:disabled{opacity:.5}
   .empty{margin:auto;text-align:center;color:var(--sub);font-size:14px;padding:20px}
   .empty .big{font-size:46px;margin-bottom:10px}
+
+  /* 轻提示 */
+  #toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%) translateY(10px);
+    background:rgba(31,35,41,.92);color:#fff;font-size:13px;padding:8px 16px;border-radius:20px;
+    opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:10;max-width:80%;
+    text-align:center}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 </style>
 </head>
 <body>
 <header>
   <div class="logo">📖</div>
-  <div><h1>泌园春AI小助手</h1><p>基于内部资料库 · 联网核验 · 随时提问</p></div>
+  <div class="tbox"><h1>泌园春AI小助手</h1><p>基于内部资料库 · 联网核验 · 随时提问</p></div>
+  <button id="toolsBtn" aria-label="工具">⚙</button>
 </header>
+
+<div id="toolbar">
+  <button class="tool" id="tRegen"><span class="ic">🔄</span>重新生成</button>
+  <button class="tool" id="tExport"><span class="ic">📤</span>导出对话</button>
+  <button class="tool" id="tSrc"><span class="ic">📚</span>显示参考</button>
+  <button class="tool" id="tClear"><span class="ic">🗑️</span>清空对话</button>
+</div>
 
 <div id="chat">
   <div class="empty" id="empty">
@@ -95,24 +135,20 @@
   <button id="send">发送</button>
 </footer>
 
+<div id="toast"></div>
+
 <script>
 const chat=document.getElementById('chat');
 const q=document.getElementById('q');
 const send=document.getElementById('send');
-const empty=document.getElementById('empty');
 const chips=document.getElementById('chips');
-let busy=false;
+const toolbar=document.getElementById('toolbar');
+const toolsBtn=document.getElementById('toolsBtn');
+let busy=false, lastQ='', showSrc=false;
 
 marked.setOptions({breaks:true});
 
-function addMsg(role){
-  if(empty) empty.remove();
-  const d=document.createElement('div');
-  d.className='msg '+(role==='user'?'user':'bot');
-  chat.appendChild(d);
-  chat.scrollTop=chat.scrollHeight;
-  return d;
-}
+/* ---------- 通用：渲染 / 复制 / 提示 ---------- */
 function render(el,text){
   if(window.marked&&window.DOMPurify){
     el.innerHTML=DOMPurify.sanitize(marked.parse(text));
@@ -121,21 +157,59 @@ function render(el,text){
   }
   chat.scrollTop=chat.scrollHeight;
 }
-function showSources(el,data){
-  const wrap=document.createElement('div');wrap.className='sources';
-  (data.kb||[]).forEach(s=>{const t=document.createElement('span');t.className='tag';t.textContent='📚 '+s;wrap.appendChild(t);});
-  (data.web||[]).forEach(s=>{const t=document.createElement('span');t.className='tag web';t.textContent='🌐 '+s;wrap.appendChild(t);});
-  if(wrap.children.length) el.appendChild(wrap);
+let toastTimer;
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),1600);
+}
+function fallbackCopy(text,cb){
+  const ta=document.createElement('textarea');
+  ta.value=text; ta.style.position='fixed'; ta.style.top='-9999px'; ta.style.opacity='0';
+  document.body.appendChild(ta); ta.focus(); ta.select();
+  try{document.execCommand('copy'); cb&&cb();}catch(e){toast('复制失败，请手动选择');}
+  document.body.removeChild(ta);
+}
+function copyText(text,label){
+  const ok=()=>toast('✓ 已复制'+(label?(' '+label):''));
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(ok).catch(()=>fallbackCopy(text,ok));
+  }else fallbackCopy(text,ok);
 }
 
-async function ask(question){
-  if(busy||!question.trim())return;
-  busy=true;send.disabled=true;
-  addMsg('user').textContent=question;
-  const bot=addMsg('bot');
-  bot.innerHTML='<div class="typing"><i></i><i></i><i></i></div>';
-  let acc='', srcData=null;
+/* ---------- 消息构造 ---------- */
+function removeEmpty(){const e=document.getElementById('empty'); if(e)e.remove();}
+function addUser(text){
+  removeEmpty();
+  const d=document.createElement('div'); d.className='msg user';
+  d.textContent=text; chat.appendChild(d); chat.scrollTop=chat.scrollHeight; return d;
+}
+function addBot(){
+  removeEmpty();
+  const d=document.createElement('div'); d.className='msg bot';
+  const b=document.createElement('div'); b.className='bubble';
+  b.innerHTML='<div class="typing"><i></i><i></i><i></i></div>';
+  d.appendChild(b); chat.appendChild(d);
+  const acts=document.createElement('div'); acts.className='macts';
+  const cb=document.createElement('button'); cb.className='mact'; cb.textContent='📋 复制';
+  cb.onclick=()=>copyText(d._text||b.innerText);
+  acts.appendChild(cb); chat.appendChild(acts);
+  d._bubble=b; d._acts=acts; d._text=''; d._src=null;
+  chat.scrollTop=chat.scrollHeight;
+  return d;
+}
+function ensureSources(d){
+  const old=d._bubble.querySelector('.sources'); if(old) old.remove();
+  if(!d._src) return;
+  const wrap=document.createElement('div'); wrap.className='sources';
+  (d._src.kb||[]).forEach(s=>{const t=document.createElement('span');t.className='tag';t.textContent='📚 '+s;wrap.appendChild(t);});
+  (d._src.web||[]).forEach(s=>{const t=document.createElement('span');t.className='tag web';t.textContent='🌐 '+s;wrap.appendChild(t);});
+  if(wrap.children.length) d._bubble.appendChild(wrap);
+}
 
+/* ---------- 流式问答 ---------- */
+async function stream(bot, question){
+  let acc='', srcData=null;
   try{
     const res=await fetch('/api/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question})});
     const reader=res.body.getReader();
@@ -147,30 +221,69 @@ async function ask(question){
       buf+=dec.decode(value,{stream:true});
       let idx;
       while((idx=buf.indexOf('\n\n'))>=0){
-        const block=buf.slice(0,idx);buf=buf.slice(idx+2);
+        const block=buf.slice(0,idx); buf=buf.slice(idx+2);
         const ev=(block.match(/event: (.+)/)||[])[1];
         const dt=(block.match(/data: (.+)/s)||[])[1];
         if(!dt)continue;
-        let data;try{data=JSON.parse(dt)}catch(e){continue}
-        if(ev==='sources'){srcData=data;}
-        else if(ev==='token'){acc+=data;render(bot,acc);}
-        else         if(ev==='done'){
-          /* 隐藏底部来源标签堆（参考来源已在正文内列出）*/
-          // if(srcData)showSources(bot,srcData);
-        }
-        else if(ev==='error'){acc+='\n⚠️ '+data.message;render(bot,acc);}
+        let data; try{data=JSON.parse(dt)}catch(e){continue}
+        if(ev==='sources'){srcData=data; bot._src=data;}
+        else if(ev==='token'){acc+=data; bot._text=acc; render(bot._bubble,acc);}
+        else if(ev==='done'){ if(showSrc&&srcData) ensureSources(bot); }
+        else if(ev==='error'){acc+='\n⚠️ '+data.message; bot._text=acc; render(bot._bubble,acc);}
       }
     }
-    /* 已隐藏底部来源标签堆 */
-    // if(srcData)showSources(bot,srcData);
-    if(!acc){bot.textContent='（未收到回答，请稍后重试）';}
+    if(!acc) bot._bubble.textContent='（未收到回答，请稍后重试）';
   }catch(e){
-    bot.textContent='网络错误：'+e.message;
+    bot._bubble.textContent='网络错误：'+e.message;
   }
-  busy=false;send.disabled=false;
-  q.value='';q.style.height='auto';
+}
+async function ask(question){
+  if(busy||!question.trim())return;
+  busy=true; send.disabled=true; lastQ=question;
+  addUser(question);
+  await stream(addBot(), question);
+  busy=false; send.disabled=false; q.value=''; q.style.height='auto';
+}
+async function regenerate(){
+  if(busy||!lastQ){ toast(lastQ?'正在生成中…':'还没有可重新生成的内容'); return; }
+  busy=true; send.disabled=true;
+  await stream(addBot(), lastQ);
+  busy=false; send.disabled=false;
 }
 
+/* ---------- 工具栏：折叠收纳 ---------- */
+toolsBtn.onclick=()=>{
+  const open=toolbar.classList.toggle('open');
+  toolsBtn.classList.toggle('on',open);
+};
+document.getElementById('tRegen').onclick=()=>{ toolsBtn.click(); regenerate(); };
+document.getElementById('tClear').onclick=()=>{
+  chat.innerHTML='';
+  const e=document.createElement('div'); e.className='empty'; e.id='empty';
+  e.innerHTML='<div class="big">👋</div><div>对话已清空</div><div style="margin-top:6px">工作上有不懂的，继续问我吧</div>';
+  chat.appendChild(e); lastQ=''; toast('已清空对话'); toolsBtn.click();
+};
+document.getElementById('tExport').onclick=()=>{
+  const msgs=[...chat.querySelectorAll('.msg')].map(m=>{
+    const role=m.classList.contains('user')?'我':'小黄';
+    const txt=m.classList.contains('user') ? m.textContent : (m._text||'');
+    return role+'：'+txt;
+  });
+  if(!msgs.length){ toast('暂无对话内容'); return; }
+  const text='【泌园春AI小助手 对话记录】\n'+new Date().toLocaleString()+'\n\n'+msgs.join('\n\n');
+  copyText(text,'全部对话'); toolsBtn.click();
+};
+document.getElementById('tSrc').onclick=(ev)=>{
+  showSrc=!showSrc;
+  ev.currentTarget.classList.toggle('active',showSrc);
+  document.querySelectorAll('.msg.bot').forEach(d=>{
+    const old=d._bubble.querySelector('.sources'); if(old) old.remove();
+    if(showSrc && d._src) ensureSources(d);
+  });
+  toast(showSrc?'已显示参考来源':'已隐藏参考来源'); toolsBtn.click();
+};
+
+/* ---------- 输入交互 ---------- */
 send.onclick=()=>ask(q.value);
 q.addEventListener('keydown',e=>{
   if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();ask(q.value);}
