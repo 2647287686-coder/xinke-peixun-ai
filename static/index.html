@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>新员工培训助手</title>
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+<style>
+  :root{
+    --brand:#e8543f; --brand-d:#c8432f; --bg:#f5f6f8; --card:#fff;
+    --text:#1f2329; --sub:#8a9099; --line:#ececf0;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+    background:var(--bg);color:var(--text);display:flex;flex-direction:column;
+    height:100dvh;overflow:hidden;
+  }
+  header{
+    background:linear-gradient(135deg,var(--brand),var(--brand-d));
+    color:#fff;padding:14px 16px;display:flex;align-items:center;gap:10px;
+    box-shadow:0 2px 8px rgba(0,0,0,.08);z-index:2;
+  }
+  header .logo{width:34px;height:34px;border-radius:9px;background:rgba(255,255,255,.2);
+    display:flex;align-items:center;justify-content:center;font-size:18px}
+  header h1{font-size:16px;margin:0;font-weight:600}
+  header p{font-size:11px;margin:2px 0 0;opacity:.85}
+  #chat{flex:1;overflow-y:auto;padding:14px 12px 8px;display:flex;flex-direction:column;gap:12px}
+  .msg{max-width:88%;padding:10px 13px;border-radius:14px;line-height:1.6;font-size:15px;
+    word-break:break-word;white-space:pre-wrap}
+  .msg.user{align-self:flex-end;background:var(--brand);color:#fff;border-bottom-right-radius:4px}
+  .msg.bot{align-self:flex-start;background:var(--card);border:1px solid var(--line);
+    border-bottom-left-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+  .msg.bot h1,.msg.bot h2,.msg.bot h3{font-size:15px;margin:.4em 0}
+  .msg.bot ul,.msg.bot ol{margin:.3em 0;padding-left:1.3em}
+  .msg.bot a{color:var(--brand)}
+  .msg.bot code{background:#f0f1f3;padding:1px 4px;border-radius:4px;font-size:13px}
+  .msg.bot pre{background:#f0f1f3;padding:10px;border-radius:8px;overflow-x:auto}
+  .sources{margin-top:8px;display:flex;flex-wrap:wrap;gap:6px}
+  .tag{font-size:11px;background:#fff2ef;color:var(--brand-d);border:1px solid #f6d6cf;
+    padding:2px 8px;border-radius:20px}
+  .tag.web{background:#eef5ff;color:#2b6fd6;border-color:#d6e4fb}
+  .typing{display:inline-flex;gap:4px;padding:4px 2px}
+  .typing i{width:6px;height:6px;border-radius:50%;background:var(--sub);animation:bl 1s infinite}
+  .typing i:nth-child(2){animation-delay:.2s}.typing i:nth-child(3){animation-delay:.4s}
+  @keyframes bl{0%,60%,100%{opacity:.3}30%{opacity:1}}
+  .chips{display:flex;gap:8px;overflow-x:auto;padding:0 12px 8px;scrollbar-width:none}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{flex:0 0 auto;background:var(--card);border:1px solid var(--line);color:var(--brand-d);
+    font-size:13px;padding:7px 12px;border-radius:20px;white-space:nowrap}
+  .chip:active{background:#fff2ef}
+  footer{background:var(--card);border-top:1px solid var(--line);padding:8px 10px;
+    padding-bottom:max(8px,env(safe-area-inset-bottom));display:flex;gap:8px;align-items:flex-end}
+  #q{flex:1;border:1px solid var(--line);border-radius:20px;padding:10px 14px;font-size:15px;
+    outline:none;max-height:120px;resize:none;font-family:inherit;background:var(--bg)}
+  #q:focus{border-color:var(--brand)}
+  #send{background:var(--brand);color:#fff;border:none;border-radius:20px;padding:0 18px;
+    height:42px;font-size:15px;font-weight:600;flex:0 0 auto}
+  #send:disabled{opacity:.5}
+  .empty{margin:auto;text-align:center;color:var(--sub);font-size:14px;padding:20px}
+  .empty .big{font-size:46px;margin-bottom:10px}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">📖</div>
+  <div><h1>新员工培训助手</h1><p>基于内部资料库 · 联网核验 · 随时提问</p></div>
+</header>
+
+<div id="chat">
+  <div class="empty" id="empty">
+    <div class="big">👋</div>
+    <div>你好，我是新员工培训小助手</div>
+    <div style="margin-top:6px">工作上有不懂的，直接问我吧</div>
+  </div>
+</div>
+
+<div class="chips" id="chips">
+  <div class="chip">喜客丸品牌定位是什么？</div>
+  <div class="chip">个体工商户怎么办理预包装食品？</div>
+  <div class="chip">拓店人员怎么选目标门店？</div>
+  <div class="chip">地推合作话术有哪些？</div>
+  <div class="chip">2026年最新社保政策有什么变化？</div>
+</div>
+
+<footer>
+  <textarea id="q" rows="1" placeholder="输入你的问题…"></textarea>
+  <button id="send">发送</button>
+</footer>
+
+<script>
+const chat=document.getElementById('chat');
+const q=document.getElementById('q');
+const send=document.getElementById('send');
+const empty=document.getElementById('empty');
+const chips=document.getElementById('chips');
+let busy=false;
+
+marked.setOptions({breaks:true});
+
+function addMsg(role){
+  if(empty) empty.remove();
+  const d=document.createElement('div');
+  d.className='msg '+(role==='user'?'user':'bot');
+  chat.appendChild(d);
+  chat.scrollTop=chat.scrollHeight;
+  return d;
+}
+function render(el,text){
+  if(window.marked&&window.DOMPurify){
+    el.innerHTML=DOMPurify.sanitize(marked.parse(text));
+  }else{
+    el.textContent=text;
+  }
+  chat.scrollTop=chat.scrollHeight;
+}
+function showSources(el,data){
+  const wrap=document.createElement('div');wrap.className='sources';
+  (data.kb||[]).forEach(s=>{const t=document.createElement('span');t.className='tag';t.textContent='📚 '+s;wrap.appendChild(t);});
+  (data.web||[]).forEach(s=>{const t=document.createElement('span');t.className='tag web';t.textContent='🌐 '+s;wrap.appendChild(t);});
+  if(wrap.children.length) el.appendChild(wrap);
+}
+
+async function ask(question){
+  if(busy||!question.trim())return;
+  busy=true;send.disabled=true;
+  addMsg('user').textContent=question;
+  const bot=addMsg('bot');
+  bot.innerHTML='<div class="typing"><i></i><i></i><i></i></div>';
+  let acc='', srcData=null;
+
+  try{
+    const res=await fetch('/api/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question})});
+    const reader=res.body.getReader();
+    const dec=new TextDecoder();
+    let buf='';
+    while(true){
+      const {done,value}=await reader.read();
+      if(done)break;
+      buf+=dec.decode(value,{stream:true});
+      let idx;
+      while((idx=buf.indexOf('\n\n'))>=0){
+        const block=buf.slice(0,idx);buf=buf.slice(idx+2);
+        const ev=(block.match(/event: (.+)/)||[])[1];
+        const dt=(block.match(/data: (.+)/s)||[])[1];
+        if(!dt)continue;
+        let data;try{data=JSON.parse(dt)}catch(e){continue}
+        if(ev==='sources'){srcData=data;}
+        else if(ev==='token'){acc+=data;render(bot,acc);}
+        else if(ev==='done'){
+          if(srcData)showSources(bot,srcData);
+        }
+        else if(ev==='error'){acc+='\n⚠️ '+data.message;render(bot,acc);}
+      }
+    }
+    if(srcData)showSources(bot,srcData);
+    if(!acc){bot.textContent='（未收到回答，请稍后重试）';}
+  }catch(e){
+    bot.textContent='网络错误：'+e.message;
+  }
+  busy=false;send.disabled=false;
+  q.value='';q.style.height='auto';
+}
+
+send.onclick=()=>ask(q.value);
+q.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();ask(q.value);}
+});
+q.addEventListener('input',()=>{q.style.height='auto';q.style.height=Math.min(q.scrollHeight,120)+'px';});
+chips.querySelectorAll('.chip').forEach(c=>c.onclick=()=>ask(c.textContent));
+</script>
+</body>
+</html>

@@ -1,0 +1,23 @@
+# Render.com 一键部署配置（Blueprint）
+# 部署后到 Render 控制台把 DEEPSEEK_API_KEY / SEARCH_API_KEY 填上即可
+services:
+  - type: web
+    name: xinke-training-assistant
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app.py
+    healthCheckPath: /api/health
+    envVars:
+      - key: PORT
+        value: "10000"
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: SEARCH_API_KEY
+        sync: false
+      - key: SEARCH_ENGINE
+        value: baidu
+      - key: WEB_SEARCH_ENABLED
+        value: "1"
+      - key: TOP_K
+        value: "5"

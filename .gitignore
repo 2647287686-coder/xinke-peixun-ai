@@ -1,0 +1,12 @@
+# 依赖与本地运行产物
+__pycache__/
+*.pyc
+venv/
+env/
+server.log
+
+# 原始下载文件（体积大，部署不需要；kb/text 已抽取好）
+kb/raw/
+
+# 本地密钥
+.env

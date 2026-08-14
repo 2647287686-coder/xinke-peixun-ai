@@ -1,0 +1,9 @@
+flask
+requests
+rank_bm25
+beautifulsoup4
+jieba
+lxml
+python-docx
+openpyxl
+python-pptx
