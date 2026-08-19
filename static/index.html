@@ -53,11 +53,15 @@
     border-bottom-left-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
   .msg.bot > *:first-child{margin-top:0}
   .msg.bot > *:last-child{margin-bottom:0}
-  .msg.bot p{margin:.08em 0;line-height:1.45}
-  .msg.bot h1,.msg.bot h2,.msg.bot h3{font-size:15px;margin:.22em 0 .06em;line-height:1.35}
-  .msg.bot ul,.msg.bot ol{margin:.06em 0;padding-left:1.25em}
-  .msg.bot li{margin:0;line-height:1.45}
+  .msg.bot p{margin:0;line-height:1.5}
+  .msg.bot p + p,.msg.bot p + ul,.msg.bot p + ol,.msg.bot p + h1,.msg.bot p + h2,.msg.bot p + h3{margin-top:.18em}
+  .msg.bot p:empty,.msg.bot p:only-child:empty{display:none}
+  .msg.bot h1,.msg.bot h2,.msg.bot h3{font-size:15px;margin:.25em 0 .08em;line-height:1.4}
+  .msg.bot h1 + p,.msg.bot h2 + p,.msg.bot h3 + p{margin-top:0}
+  .msg.bot ul,.msg.bot ol{margin:.05em 0;padding-left:1.25em}
+  .msg.bot li{margin:0;line-height:1.5}
   .msg.bot li > p{margin:0}
+  .msg.bot br{line-height:1}
   .msg.bot a{color:var(--brand)}
   .msg.bot code{background:#f0f1f3;padding:1px 4px;border-radius:4px;font-size:13px}
   .msg.bot pre{background:#f0f1f3;padding:10px;border-radius:8px;overflow-x:auto}
@@ -183,8 +187,9 @@ marked.setOptions({breaks:true});
 
 /* ---------- 通用：渲染 / 复制 / 提示 ---------- */
 function render(el,text){
+  const t=String(text||'').replace(/[ \t]*\n[ \t]*\n[ \t]*\n+[ \t\n]*/g,'\n\n').trim();
   if(window.marked&&window.DOMPurify){
-    el.innerHTML=DOMPurify.sanitize(marked.parse(text));
+    el.innerHTML=DOMPurify.sanitize(marked.parse(t));
   }else{
     el.textContent=text;
   }
