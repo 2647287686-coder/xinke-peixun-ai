@@ -648,6 +648,28 @@ def admin_role(uid):
     return jsonify({"ok": True})
 
 
+@app.route("/api/admin/users/<int:uid>", methods=["DELETE"])
+@admin_required
+def admin_delete_user(uid):
+    me_id = session.get("user_id")
+    target = db.session.get(User, uid)
+    if not target:
+        return jsonify({"error": "员工不存在"}), 404
+    if target.id == me_id:
+        return jsonify({"error": "不能删除自己的主账号"}), 400
+    if target.role == "admin":
+        other_admins = User.query.filter(User.role == "admin", User.id != uid).count()
+        if other_admins == 0:
+            return jsonify({"error": "至少保留一个管理员，无法删除最后一位管理员"}), 400
+    # 级联清理：使用记录 + 密码重置申请
+    UsageLog.query.filter_by(user_id=uid).delete()
+    ResetRequest.query.filter_by(user_id=uid).delete()
+    phone = target.phone
+    db.session.delete(target)
+    db.session.commit()
+    return jsonify({"ok": True, "deleted": phone})
+
+
 @app.route("/api/admin/reset-password", methods=["POST"])
 @admin_required
 def admin_reset():

@@ -55,6 +55,8 @@
   .role.employee{background:#f0f1f3;color:#6b7280}
   .act{color:var(--brand-d);cursor:pointer;text-decoration:none;margin-right:10px;white-space:nowrap}
   .act:hover{text-decoration:underline}
+  .act.del{color:#cf2d2d;font-weight:600}
+  .act.del:hover{color:#a01818}
   .toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);background:rgba(31,35,41,.92);
     color:#fff;font-size:13px;padding:9px 18px;border-radius:20px;opacity:0;transition:opacity .2s;z-index:30;pointer-events:none}
   .toast.show{opacity:1}
@@ -212,7 +214,8 @@ async function loadUsers(page){
       +`<td>${u.usage_count}</td>`
       +`<td><a class="act" onclick="openDetail(${u.id})">详情</a>`
       +`<a class="act" onclick="resetPwd(${u.id})">重置密码</a>`
-      +`<a class="act" onclick="toggleRole(${u.id},'${u.role}')">${u.role==='admin'?'降为员工':'设为管理员'}</a></td>`;
+      +`<a class="act" onclick="toggleRole(${u.id},'${u.role}')">${u.role==='admin'?'降为员工':'设为管理员'}</a>`
+      +`<a class="act del" onclick="deleteUser(${u.id},'${u.phone}','${u.name||''}')">删除</a></td>`;
     tb.appendChild(tr);
   });
 }
@@ -255,6 +258,14 @@ async function toggleRole(uid,role){
   const d=await api('/api/admin/users/'+uid+'/role',{method:'POST',body:JSON.stringify({role:nr})});
   toast(d.ok?'角色已更新':'失败：'+(d.error||''));
   if(d.ok) loadUsers(1);
+}
+async function deleteUser(uid,phone,name){
+  const tag = name?`（${name}）`:'';
+  if(!confirm('确认删除员工 ' + phone + tag + '？\n\n该员工的所有提问记录、密码重置申请将被一并清除，且不可恢复。')) return;
+  if(!confirm('再次确认：真的要永久删除该账号吗？')) return;
+  const d=await fetch('/api/admin/users/'+uid,{method:'DELETE'}).then(r=>r.json());
+  toast(d.ok?'已删除 '+d.deleted:'失败：'+(d.error||''));
+  if(d.ok){ loadUsers(1); loadStats(); }
 }
 async function saveAnnouncement(){
   const t=$('annInput').value;
