@@ -11,6 +11,14 @@ services:
     envVars:
       - key: PORT
         value: "10000"
+      - key: DATABASE_URL
+        sync: false
+      - key: SECRET_KEY
+        sync: false
+      - key: ADMIN_PHONE
+        sync: false
+      - key: ADMIN_DEFAULT_PASSWORD
+        sync: false
       - key: DEEPSEEK_API_KEY
         sync: false
       - key: SEARCH_API_KEY

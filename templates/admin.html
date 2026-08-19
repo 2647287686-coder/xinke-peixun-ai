@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>总部后台 · 喜客丸AI小助手</title>
+<style>
+  :root{--brand:#e8543f;--brand-d:#c8432f;--bg:#f5f6f8;--card:#fff;
+    --text:#1f2329;--sub:#8a9099;--line:#ececf0;--ok:#1a9d54;--warn:#d9822b}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+    background:var(--bg);color:var(--text)}
+  header{background:linear-gradient(135deg,var(--brand),var(--brand-d));color:#fff;
+    padding:14px 20px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:5}
+  header .logo{width:36px;height:36px;border-radius:9px;background:rgba(255,255,255,.2);
+    display:flex;align-items:center;justify-content:center;font-size:19px}
+  header h1{font-size:17px;margin:0;font-weight:600}
+  header .spacer{margin-left:auto;display:flex;gap:10px;align-items:center}
+  header button{background:rgba(255,255,255,.18);border:none;color:#fff;height:34px;
+    padding:0 14px;border-radius:9px;font-size:13px;cursor:pointer}
+  header button:active{background:rgba(255,255,255,.34)}
+  .wrap{max-width:1080px;margin:0 auto;padding:18px 16px 60px}
+  .tabs{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap}
+  .tab{border:1px solid var(--line);background:var(--card);color:var(--sub);font-size:14px;
+    padding:9px 16px;border-radius:10px;cursor:pointer;font-weight:600}
+  .tab.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+  .panel{display:none}
+  .panel.on{display:block}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+  .stat .n{font-size:26px;font-weight:700;color:var(--brand-d)}
+  .stat .l{font-size:13px;color:var(--sub);margin-top:4px}
+  .box{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px}
+  .box h3{margin:0 0 12px;font-size:16px}
+  .balance-row{display:flex;gap:18px;flex-wrap:wrap;align-items:center}
+  .balance-row .b{font-size:22px;font-weight:700}
+  .balance-row .bk{font-size:12px;color:var(--sub)}
+  textarea,input[type=text]{width:100%;border:1px solid var(--line);border-radius:10px;
+    padding:11px 13px;font-size:14px;font-family:inherit;background:var(--bg);outline:none;resize:vertical}
+  textarea:focus,input[type=text]:focus{border-color:var(--brand)}
+  .btn{background:var(--brand);color:#fff;border:none;border-radius:10px;padding:11px 20px;
+    font-size:14px;font-weight:600;cursor:pointer;margin-top:10px}
+  .btn.ghost{background:var(--bg);color:var(--text);border:1px solid var(--line)}
+  .btn.sm{padding:7px 12px;font-size:13px;margin-top:0}
+  .btn:active{background:var(--brand-d)}
+  .hint{font-size:12px;color:var(--sub);margin-top:8px}
+  .search{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+  .search input{flex:1;min-width:200px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--sub);font-weight:600;font-size:12px}
+  tr:hover td{background:#fafafa}
+  .role{display:inline-block;font-size:11px;padding:2px 9px;border-radius:20px}
+  .role.admin{background:#eef5ff;color:#2b6fd6}
+  .role.employee{background:#f0f1f3;color:#6b7280}
+  .act{color:var(--brand-d);cursor:pointer;text-decoration:none;margin-right:10px;white-space:nowrap}
+  .act:hover{text-decoration:underline}
+  .toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);background:rgba(31,35,41,.92);
+    color:#fff;font-size:13px;padding:9px 18px;border-radius:20px;opacity:0;transition:opacity .2s;z-index:30;pointer-events:none}
+  .toast.show{opacity:1}
+  /* 详情抽屉 */
+  .mask{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;z-index:20}
+  .mask.on{display:block}
+  .drawer{position:fixed;right:0;top:0;bottom:0;width:min(460px,92vw);background:var(--card);
+    z-index:21;transform:translateX(100%);transition:transform .25s;display:flex;flex-direction:column}
+  .drawer.on{transform:translateX(0)}
+  .drawer header{position:static}
+  .drawer .body{flex:1;overflow-y:auto;padding:16px}
+  .qitem{border:1px solid var(--line);border-radius:10px;padding:11px 12px;margin-bottom:10px}
+  .qitem .qt{font-size:13px;font-weight:600}
+  .qitem .qa{font-size:12px;color:var(--sub);margin-top:4px;white-space:pre-wrap;word-break:break-word}
+  .qitem .qm{font-size:11px;color:var(--sub);margin-top:6px}
+  @media(max-width:560px){ table .col-hide{display:none} }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">📖</div>
+  <h1 id="hTitle">总部后台</h1>
+  <div class="spacer">
+    <button onclick="logout()">退出登录</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="tabs">
+    <button class="tab on" data-p="overview">数据概览</button>
+    <button class="tab" data-p="users">用户管理</button>
+    <button class="tab" data-p="settings">公告与设置</button>
+  </div>
+
+  <!-- 概览 -->
+  <section class="panel on" id="p-overview">
+    <div class="cards">
+      <div class="stat"><div class="n" id="sUsers">-</div><div class="l">注册员工总数</div></div>
+      <div class="stat"><div class="n" id="sAdmins">-</div><div class="l">管理员数</div></div>
+      <div class="stat"><div class="n" id="sQ">-</div><div class="l">累计提问数</div></div>
+      <div class="stat"><div class="n" id="sToday">-</div><div class="l">今日提问数</div></div>
+    </div>
+    <div class="box">
+      <h3>DeepSeek API 余额</h3>
+      <div id="balanceArea"><div class="hint">加载中…</div></div>
+    </div>
+  </section>
+
+  <!-- 用户管理 -->
+  <section class="panel" id="p-users">
+    <div class="search">
+      <input type="text" id="searchInput" placeholder="搜索手机号或姓名" />
+      <button class="btn sm" onclick="loadUsers(1)">搜索</button>
+    </div>
+    <div class="box" style="padding:6px 6px">
+      <table>
+        <thead><tr>
+          <th>手机号</th><th>姓名</th><th>角色</th>
+          <th class="col-hide">注册时间</th><th class="col-hide">最近活跃</th>
+          <th>提问数</th><th>操作</th>
+        </tr></thead>
+        <tbody id="userRows"></tbody>
+      </table>
+      <div id="userEmpty" class="hint" style="padding:14px;text-align:center;display:none">暂无用户</div>
+    </div>
+  </section>
+
+  <!-- 公告与设置 -->
+  <section class="panel" id="p-settings">
+    <div class="box">
+      <h3>群公告（员工打开小助手时置顶展示）</h3>
+      <textarea id="annInput" rows="4" placeholder="例如：本周五 18:00 全员培训，地点 3 楼会议室…"></textarea>
+      <button class="btn" onclick="saveAnnouncement()">保存并发布</button>
+      <div class="hint">留空则不显示公告。支持纯文本，员工端自动换行展示。</div>
+    </div>
+    <div class="box">
+      <h3>助手改名</h3>
+      <input type="text" id="nameInput" placeholder="如：喜客丸AI小助手" />
+      <button class="btn" onclick="saveName()">保存改名</button>
+      <div class="hint">改名后员工端标题、问候语及 AI 回答中的助手名会同步更新。</div>
+    </div>
+  </section>
+</div>
+
+<div class="mask" id="mask" onclick="closeDrawer()"></div>
+<div class="drawer" id="drawer">
+  <header>
+    <div class="logo">👤</div>
+    <h1 id="dTitle">员工详情</h1>
+    <div class="spacer"><button onclick="closeDrawer()">关闭</button></div>
+  </header>
+  <div class="body" id="dBody"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $=id=>document.getElementById(id);
+function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1600);}
+function api(path,opts){return fetch(path,Object.assign({headers:{'Content-Type':'application/json'}},opts||{})).then(r=>r.json());}
+
+/* 标签切换 */
+document.querySelectorAll('.tab').forEach(b=>{
+  b.onclick=()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
+    document.querySelectorAll('.panel').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on'); $('p-'+b.dataset.p).classList.add('on');
+    if(b.dataset.p==='users') loadUsers(1);
+  };
+});
+
+async function loadStats(){
+  const d=await api('/api/admin/stats');
+  if(d.error){toast(d.error);return;}
+  $('sUsers').textContent=d.total_users;
+  $('sAdmins').textContent=d.admins;
+  $('sQ').textContent=d.total_questions;
+  $('sToday').textContent=d.questions_today;
+  $('hTitle').textContent='总部后台 · '+d.assistant_name;
+  $('nameInput').value=d.assistant_name;
+  $('annInput').value=d.announcement||'';
+  // 余额
+  const b=await api('/api/admin/balance');
+  const ba=$('balanceArea');
+  if(!b.configured){ ba.innerHTML='<div class="hint">未配置 DEEPSEEK_API_KEY，无法读取余额。</div>'; }
+  else if(b.error){ ba.innerHTML='<div class="hint">读取失败：'+b.error+'</div>'; }
+  else{
+    const infos=(b.data&&b.data.balance_infos)||[];
+    if(!infos.length){ ba.innerHTML='<div class="hint">暂无余额信息。</div>'; }
+    else{
+      ba.innerHTML=infos.map(i=>{
+        const cur=i.currency||'CNY';
+        return '<div class="balance-row"><div><div class="bk">总余额('+cur+')</div><div class="b">'+i.total_balance+'</div></div>'
+          +'<div><div class="bk">赠金('+cur+')</div><div class="b" style="font-size:16px">'+i.granted_balance+'</div></div>'
+          +'<div><div class="bk">充值('+cur+')</div><div class="b" style="font-size:16px">'+i.topped_up_balance+'</div></div></div>';
+      }).join('');
+    }
+  }
+}
+
+async function loadUsers(page){
+  const q=$('searchInput').value.trim();
+  const d=await api('/api/admin/users?q='+encodeURIComponent(q)+'&page='+page);
+  if(d.error){toast(d.error);return;}
+  const tb=$('userRows'); tb.innerHTML='';
+  if(!d.items.length){ $('userEmpty').style.display='block'; return; }
+  $('userEmpty').style.display='none';
+  d.items.forEach(u=>{
+    const tr=document.createElement('tr');
+    const reg=(u.created_at||'').replace('T',' ').slice(0,16);
+    const act=(u.last_active||'').replace('T',' ').slice(0,16);
+    tr.innerHTML=`<td>${u.phone}</td><td>${u.name||'-'}</td>`
+      +`<td><span class="role ${u.role}">${u.role==='admin'?'管理员':'员工'}</span></td>`
+      +`<td class="col-hide">${reg}</td><td class="col-hide">${act}</td>`
+      +`<td>${u.usage_count}</td>`
+      +`<td><a class="act" onclick="openDetail(${u.id})">详情</a>`
+      +`<a class="act" onclick="resetPwd(${u.id})">重置密码</a>`
+      +`<a class="act" onclick="toggleRole(${u.id},'${u.role}')">${u.role==='admin'?'降为员工':'设为管理员'}</a></td>`;
+    tb.appendChild(tr);
+  });
+}
+
+async function openDetail(uid){
+  const d=await api('/api/admin/users/'+uid);
+  if(d.error){toast(d.error);return;}
+  const u=d.user;
+  $('dTitle').textContent='员工详情 · '+u.phone;
+  let html=`<div class="qitem"><div class="qt">基础信息</div><div class="qa">`
+    +`手机号：${u.phone}\n姓名：${u.name||'-'}\n角色：${u.role==='admin'?'管理员':'员工'}`
+    +`\n注册：${(u.created_at||'').replace('T',' ').slice(0,16)}\n最近登录：${(u.last_login||'').replace('T',' ').slice(0,16)}</div></div>`;
+  if(d.usage.length){
+    html+='<div class="qt" style="font-weight:600;margin:6px 0">提问记录（最近 '+d.usage.length+' 条）</div>';
+    d.usage.forEach(x=>{
+      html+=`<div class="qitem"><div class="qt">${escapeHtml(x.question)}</div>`
+        +`<div class="qa">${escapeHtml(x.preview||'')}</div>`
+        +`<div class="qm">${(x.at||'').replace('T',' ').slice(0,16)} · 资料${x.kb} · 联网${x.web}</div></div>`;
+    });
+  }else{
+    html+='<div class="hint" style="padding:10px">该员工尚未提问。</div>';
+  }
+  $('dBody').innerHTML=html;
+  $('mask').classList.add('on'); $('drawer').classList.add('on');
+}
+function closeDrawer(){$('mask').classList.remove('on');$('drawer').classList.remove('on');}
+function escapeHtml(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+async function resetPwd(uid){
+  const pwd=prompt('为该员工设置新密码（至少6位）：');
+  if(!pwd) return;
+  if(pwd.length<6){toast('密码至少6位');return;}
+  const d=await api('/api/admin/reset-password',{method:'POST',body:JSON.stringify({user_id:uid,new_password:pwd})});
+  toast(d.ok?'已重置密码':'失败：'+(d.error||''));
+  if(d.ok) loadUsers(1);
+}
+async function toggleRole(uid,role){
+  const nr=role==='admin'?'employee':'admin';
+  if(!confirm('确认将角色切换为「'+(nr==='admin'?'管理员':'员工')+'」？')) return;
+  const d=await api('/api/admin/users/'+uid+'/role',{method:'POST',body:JSON.stringify({role:nr})});
+  toast(d.ok?'角色已更新':'失败：'+(d.error||''));
+  if(d.ok) loadUsers(1);
+}
+async function saveAnnouncement(){
+  const t=$('annInput').value;
+  const d=await api('/api/admin/announcement',{method:'POST',body:JSON.stringify({text:t})});
+  toast(d.ok?'公告已发布':'失败：'+(d.error||''));
+}
+async function saveName(){
+  const n=$('nameInput').value.trim();
+  if(!n){toast('名称不能为空');return;}
+  const d=await api('/api/admin/rename',{method:'POST',body:JSON.stringify({name:n})});
+  toast(d.ok?'已改名':'失败：'+(d.error||''));
+  if(d.ok) $('hTitle').textContent='总部后台 · '+n;
+}
+async function logout(){
+  await api('/api/logout',{method:'POST'});
+  location.href='/';
+}
+
+loadStats();
+</script>
+</body>
+</html>

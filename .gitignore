@@ -4,6 +4,11 @@ __pycache__/
 venv/
 env/
 server.log
+server*.log
+
+# 本地数据库（测试用 SQLite；生产用 Postgres，绝不入库）
+*.db
+app.db
 
 # 原始下载文件（体积大，部署不需要；kb/text 已抽取好）
 kb/raw/

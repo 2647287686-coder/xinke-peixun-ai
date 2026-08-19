@@ -1,4 +1,6 @@
 flask
+flask-sqlalchemy
+psycopg2-binary
 gunicorn
 requests
 rank_bm25

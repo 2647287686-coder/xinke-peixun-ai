@@ -28,13 +28,17 @@
   header .tbox{flex:1;min-width:0}
   header h1{font-size:16px;margin:0;font-weight:600}
   header p{font-size:11px;margin:2px 0 0;opacity:.85}
-  header #toolsBtn{margin-left:auto;background:rgba(255,255,255,.18);border:none;color:#fff;
-    width:36px;height:36px;border-radius:10px;font-size:18px;flex:0 0 auto;display:flex;
-    align-items:center;justify-content:center;transition:background .15s}
-  header #toolsBtn:active{background:rgba(255,255,255,.34)}
-  header #toolsBtn.on{background:rgba(255,255,255,.34)}
+  header .hbtn{background:rgba(255,255,255,.18);border:none;color:#fff;
+    height:34px;padding:0 12px;border-radius:10px;font-size:13px;flex:0 0 auto}
+  header .hbtn:active{background:rgba(255,255,255,.34)}
+  header #userBtn{width:34px;padding:0;font-size:18px}
 
-  /* 可折叠工具栏：默认收起，展开收纳小功能 */
+  /* 群公告横幅 */
+  #announce{background:#fff7e8;color:#9a5b00;border-bottom:1px solid #ffe2b8;
+    padding:9px 14px;font-size:13px;line-height:1.5;display:none;z-index:2;
+    white-space:pre-wrap;word-break:break-word}
+  #announce b{color:var(--brand-d)}
+
   #toolbar{background:var(--card);border-bottom:1px solid var(--line);overflow:hidden;
     max-height:0;transition:max-height .26s ease;display:flex;flex-wrap:wrap;gap:8px;
     padding:0 12px;z-index:2}
@@ -74,7 +78,6 @@
   .typing i:nth-child(2){animation-delay:.2s}.typing i:nth-child(3){animation-delay:.4s}
   @keyframes bl{0%,60%,100%{opacity:.3}30%{opacity:1}}
 
-  /* 每条 AI 回复下方的操作条（仅复制，保持极简） */
   .macts{display:flex;gap:8px;align-self:flex-start;margin:-4px 0 2px;padding-left:2px}
   .mact{font-size:12px;color:var(--brand-d);background:#fff2ef;border:1px solid #f6d6cf;
     padding:3px 10px;border-radius:14px;line-height:1.4}
@@ -96,14 +99,12 @@
   .empty{margin:auto;text-align:center;color:var(--sub);font-size:14px;padding:20px}
   .empty .big{font-size:46px;margin-bottom:10px}
 
-  /* 轻提示 */
   #toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%) translateY(10px);
     background:rgba(31,35,41,.92);color:#fff;font-size:13px;padding:8px 16px;border-radius:20px;
     opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:10;max-width:80%;
     text-align:center}
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
-  /* 生成器底部弹层 */
   #genMask{position:fixed;inset:0;background:rgba(0,0,0,.35);opacity:0;pointer-events:none;
     transition:opacity .25s;z-index:19}
   #genMask.open{opacity:1;pointer-events:auto}
@@ -121,60 +122,115 @@
   .gbtn{flex:1;height:44px;border:none;border-radius:12px;font-size:15px;font-weight:600}
   .gbtn.go{background:var(--brand);color:#fff}
   .gbtn.cancel{background:var(--bg);color:var(--text);border:1px solid var(--line)}
+
+  /* 登录/注册/忘记密码 */
+  #auth{position:fixed;inset:0;background:linear-gradient(160deg,var(--brand),var(--brand-d));
+    display:flex;align-items:center;justify-content:center;z-index:50;padding:20px}
+  #auth.hide{display:none}
+  .acard{width:100%;max-width:360px;background:var(--card);border-radius:18px;padding:24px 20px;
+    box-shadow:0 12px 40px rgba(0,0,0,.22)}
+  .acard .alogo{width:52px;height:52px;border-radius:14px;margin:0 auto 12px;
+    background:linear-gradient(135deg,var(--brand),var(--brand-d));color:#fff;
+    display:flex;align-items:center;justify-content:center;font-size:26px}
+  .acard h2{text-align:center;margin:0 0 4px;font-size:19px}
+  .acard .asub{text-align:center;color:var(--sub);font-size:13px;margin:0 0 18px}
+  .atabs{display:flex;background:var(--bg);border-radius:12px;padding:4px;margin-bottom:14px}
+  .atab{flex:1;border:none;background:transparent;color:var(--sub);font-size:14px;
+    padding:8px 0;border-radius:9px;font-weight:600}
+  .atab.on{background:var(--card);color:var(--brand-d);box-shadow:0 1px 4px rgba(0,0,0,.08)}
+  .ain{width:100%;border:1px solid var(--line);border-radius:12px;padding:12px 14px;
+    font-size:15px;outline:none;margin-bottom:10px;font-family:inherit;background:var(--bg)}
+  .ain:focus{border-color:var(--brand)}
+  .asubmit{width:100%;background:var(--brand);color:#fff;border:none;border-radius:12px;
+    padding:13px 0;font-size:16px;font-weight:600;margin-top:4px}
+  .asubmit:active{background:var(--brand-d)}
+  .afoot{display:flex;justify-content:flex-end;margin-top:12px}
+  .afoot a{color:var(--brand-d);font-size:13px;text-decoration:none}
+  .amsg{color:var(--brand-d);font-size:13px;text-align:center;min-height:18px;margin-top:8px}
+  #appView{display:none;flex:1;flex-direction:column;min-height:0}
+  #appView.show{display:flex}
 </style>
 </head>
 <body>
-<header>
-  <div class="logo">📖</div>
-  <div class="tbox"><h1>喜客丸AI小助手</h1><p>基于内部资料库 · 联网核验 · 随时提问</p></div>
-  <button id="toolsBtn" aria-label="工具">⚙</button>
-</header>
 
-<div id="toolbar">
-  <button class="tool" id="tRegen"><span class="ic">🔄</span>重新生成</button>
-  <button class="tool" id="tExport"><span class="ic">📤</span>导出对话</button>
-  <button class="tool" id="tSrc"><span class="ic">📚</span>显示参考</button>
-  <button class="tool" id="tClear"><span class="ic">🗑️</span>清空对话</button>
-  <button class="tool" id="tScript"><span class="ic">💬</span>场景话术</button>
-  <button class="tool" id="tFlow"><span class="ic">🪜</span>流程步骤</button>
-  <button class="tool" id="tCard"><span class="ic">🃏</span>产品速查</button>
-</div>
-
-<div id="chat">
-  <div class="empty" id="empty">
-    <div class="big">👋</div>
-    <div>你好，我是喜客丸AI小助手</div>
-    <div style="margin-top:6px">工作上有不懂的，直接问我吧</div>
+<!-- 登录/注册/忘记密码 -->
+<div id="auth">
+  <div class="acard">
+    <div class="alogo">📖</div>
+    <h2 id="authTitle">喜客丸AI小助手</h2>
+    <p class="asub" id="authSub">新员工培训 · 请登录后使用</p>
+    <div class="atabs" id="atabs">
+      <button class="atab on" data-tab="login">登录</button>
+      <button class="atab" data-tab="register">注册</button>
+    </div>
+    <input id="aPhone" class="ain" inputmode="numeric" maxlength="11" placeholder="手机号" autocomplete="off" />
+    <input id="aName" class="ain" placeholder="姓名（选填）" style="display:none" autocomplete="off" />
+    <input id="aPwd" class="ain" type="password" placeholder="密码（至少6位）" autocomplete="off" />
+    <button id="aSubmit" class="asubmit">登录</button>
+    <div class="afoot"><a id="aForgot">忘记密码？</a></div>
+    <div id="aMsg" class="amsg"></div>
   </div>
 </div>
 
-<div class="chips" id="chips">
-  <div class="chip">喜客丸品牌定位是什么？</div>
-  <div class="chip">个体工商户怎么办理预包装食品？</div>
-  <div class="chip">拓店人员怎么选目标门店？</div>
-  <div class="chip">地推合作话术有哪些？</div>
-  <div class="chip">2026年最新社保政策有什么变化？</div>
-</div>
+<!-- 主应用 -->
+<div id="appView">
+  <header>
+    <div class="logo">📖</div>
+    <div class="tbox"><h1 id="appTitle">喜客丸AI小助手</h1><p>基于内部资料库 · 联网核验 · 随时提问</p></div>
+    <button id="adminBtn" class="hbtn" style="display:none" onclick="location.href='/admin'">后台</button>
+    <button id="userBtn" class="hbtn" title="退出登录">👤</button>
+  </header>
 
-<footer>
-  <textarea id="q" rows="1" placeholder="输入你的问题…"></textarea>
-  <button id="send">发送</button>
-</footer>
+  <div id="announce"></div>
 
-<div id="genMask"></div>
-<div id="genSheet">
-  <h3 id="genTitle">场景话术生成</h3>
-  <div class="ghint" id="genHint"></div>
-  <textarea id="genInput" placeholder="请输入…"></textarea>
-  <div class="grow">
-    <button class="gbtn cancel" id="genCancel">取消</button>
-    <button class="gbtn go" id="genGo">生成</button>
+  <div id="toolbar">
+    <button class="tool" id="tRegen"><span class="ic">🔄</span>重新生成</button>
+    <button class="tool" id="tExport"><span class="ic">📤</span>导出对话</button>
+    <button class="tool" id="tSrc"><span class="ic">📚</span>显示参考</button>
+    <button class="tool" id="tClear"><span class="ic">🗑️</span>清空对话</button>
+    <button class="tool" id="tScript"><span class="ic">💬</span>场景话术</button>
+    <button class="tool" id="tFlow"><span class="ic">🪜</span>流程步骤</button>
+    <button class="tool" id="tCard"><span class="ic">🃏</span>产品速查</button>
+  </div>
+
+  <div id="chat">
+    <div class="empty" id="empty">
+      <div class="big">👋</div>
+      <div id="helloLine">你好，我是喜客丸AI小助手</div>
+      <div style="margin-top:6px">工作上有不懂的，直接问我吧</div>
+    </div>
+  </div>
+
+  <div class="chips" id="chips">
+    <div class="chip">喜客丸品牌定位是什么？</div>
+    <div class="chip">个体工商户怎么办理预包装食品？</div>
+    <div class="chip">拓店人员怎么选目标门店？</div>
+    <div class="chip">地推合作话术有哪些？</div>
+    <div class="chip">2026年最新社保政策有什么变化？</div>
+  </div>
+
+  <footer>
+    <textarea id="q" rows="1" placeholder="输入你的问题…"></textarea>
+    <button id="send">发送</button>
+  </footer>
+
+  <div id="genMask"></div>
+  <div id="genSheet">
+    <h3 id="genTitle">场景话术生成</h3>
+    <div class="ghint" id="genHint"></div>
+    <textarea id="genInput" placeholder="请输入…"></textarea>
+    <div class="grow">
+      <button class="gbtn cancel" id="genCancel">取消</button>
+      <button class="gbtn go" id="genGo">生成</button>
+    </div>
   </div>
 </div>
 
 <div id="toast"></div>
 
 <script>
+let currentName = '喜客丸AI小助手';
+let currentUser = null;
 const chat=document.getElementById('chat');
 const q=document.getElementById('q');
 const send=document.getElementById('send');
@@ -250,6 +306,7 @@ async function stream(bot, question){
   let acc='', srcData=null;
   try{
     const res=await fetch('/api/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question})});
+    if(res.status===401){ bootAuth(); return; }
     const reader=res.body.getReader();
     const dec=new TextDecoder();
     let buf='';
@@ -308,7 +365,7 @@ document.getElementById('tExport').onclick=()=>{
     return role+'：'+txt;
   });
   if(!msgs.length){ toast('暂无对话内容'); return; }
-  const text='【喜客丸AI小助手 对话记录】\n'+new Date().toLocaleString()+'\n\n'+msgs.join('\n\n');
+  const text='【'+currentName+' 对话记录】\n'+new Date().toLocaleString()+'\n\n'+msgs.join('\n\n');
   copyText(text,'全部对话'); toolsBtn.click();
 };
 document.getElementById('tSrc').onclick=(ev)=>{
@@ -330,7 +387,7 @@ const genInput=document.getElementById('genInput');
 let genBuilder=null;
 const GEN={
   script:{title:'场景话术生成', hint:'描述场景，例如：向社区便利店老板介绍喜客丸并谈合作',
-    build:s=>`请为以下场景生成一段可直接使用的沟通话术：\n场景：${s}\n要求：口语化、自然、符合泌园春/喜客丸品牌调性；按"开场—介绍—利益点—促成"四段组织；基于内部资料库，不确定的标注待核实。`},
+    build:s=>`请为以下场景生成一段可直接使用的沟通话术：\n场景：${s}\n要求：口语化、自然、符合喜客丸品牌调性；按"开场—介绍—利益点—促成"四段组织；基于内部资料库，不确定的标注待核实。`},
   flow:{title:'流程步骤卡', hint:'描述要拆解的流程，例如：新员工办理预包装食品经营备案',
     build:s=>`请把"${s}"整理成一张清晰的流程步骤卡：分步骤编号、每步一句话说明、标注关键注意点/所需材料；基于内部资料库，不确定的标注待核实。`},
   card:{title:'产品速查卡', hint:'填产品/品牌名，例如：喜客丸',
@@ -362,6 +419,123 @@ q.addEventListener('keydown',e=>{
 });
 q.addEventListener('input',()=>{q.style.height='auto';q.style.height=Math.min(q.scrollHeight,120)+'px';});
 chips.querySelectorAll('.chip').forEach(c=>c.onclick=()=>ask(c.textContent));
+
+/* ================= 账号 / 鉴权 ================= */
+const authEl=document.getElementById('auth');
+const appView=document.getElementById('appView');
+const aPhone=document.getElementById('aPhone');
+const aName=document.getElementById('aName');
+const aPwd=document.getElementById('aPwd');
+const aSubmit=document.getElementById('aSubmit');
+const aMsg=document.getElementById('aMsg');
+const aForgot=document.getElementById('aForgot');
+const atabs=document.getElementById('atabs');
+let authTab='login';
+let forgotMode=false;
+
+function showAuth(){ authEl.classList.remove('hide'); appView.classList.remove('show'); }
+function showApp(){ authEl.classList.add('hide'); appView.classList.add('show'); }
+
+function setAuthMsg(m,ok){ aMsg.textContent=m||''; aMsg.style.color=ok?'#1a9d54':'var(--brand-d)'; }
+
+function refreshAuthUI(){
+  if(forgotMode){
+    atabs.style.display='none';
+    aName.style.display='none';
+    aPhone.style.display='';
+    aPwd.style.display='none';
+    aSubmit.textContent='提交重置申请';
+    document.getElementById('authTitle').textContent=currentName;
+    document.getElementById('authSub').textContent='忘记密码 · 提交后由总部管理员重置';
+    aForgot.textContent='返回登录';
+    return;
+  }
+  atabs.style.display='';
+  aForgot.textContent='忘记密码？';
+  document.getElementById('authTitle').textContent=currentName;
+  if(authTab==='register'){
+    aName.style.display='';
+    aSubmit.textContent='注册并登录';
+    document.getElementById('authSub').textContent='新员工注册 · 使用手机号+密码';
+  }else{
+    aName.style.display='none';
+    aSubmit.textContent='登录';
+    document.getElementById('authSub').textContent='新员工培训 · 请登录后使用';
+  }
+}
+
+atabs.querySelectorAll('.atab').forEach(b=>{
+  b.onclick=()=>{
+    atabs.querySelectorAll('.atab').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    authTab=b.dataset.tab; forgotMode=false; setAuthMsg(''); refreshAuthUI();
+  };
+});
+aForgot.onclick=()=>{ forgotMode=!forgotMode; setAuthMsg(''); refreshAuthUI(); };
+
+aSubmit.onclick=async()=>{
+  setAuthMsg('');
+  const phone=aPhone.value.trim();
+  const pwd=aPwd.value;
+  const name=aName.value.trim();
+  if(forgotMode){
+    if(!/^1[3-9]\d{9}$/.test(phone)){ setAuthMsg('请输入正确的手机号'); return; }
+    const r=await fetch('/api/forgot',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone})});
+    const d=await r.json();
+    if(d.ok){ setAuthMsg('已提交，请联系总部管理员重置密码',true); }
+    else setAuthMsg(d.error||'提交失败');
+    return;
+  }
+  if(!/^1[3-9]\d{9}$/.test(phone)){ setAuthMsg('请输入正确的手机号'); return; }
+  if(!pwd||pwd.length<6){ setAuthMsg('密码至少 6 位'); return; }
+  let url = authTab==='register' ? '/api/register' : '/api/login';
+  const body = authTab==='register' ? {phone,password:pwd,name} : {phone,password:pwd};
+  aSubmit.disabled=true;
+  try{
+    const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const d=await r.json();
+    if(d.ok){ currentUser=d.user; enterApp(); }
+    else setAuthMsg(d.error||'操作失败');
+  }catch(e){ setAuthMsg('网络错误：'+e.message); }
+  aSubmit.disabled=false;
+};
+
+document.getElementById('userBtn').onclick=async()=>{
+  if(!confirm('确认退出登录？')) return;
+  await fetch('/api/logout',{method:'POST'});
+  currentUser=null; showAuth();
+};
+
+async function loadConfig(){
+  try{
+    const r=await fetch('/api/config'); const c=await r.json();
+    currentName=c.assistant_name||'喜客丸AI小助手';
+    document.getElementById('appTitle').textContent=currentName;
+    document.getElementById('authTitle').textContent=currentName;
+    document.getElementById('helloLine').textContent='你好，我是'+currentName;
+    const ann=document.getElementById('announce');
+    if(c.announcement && c.announcement.trim()){ ann.textContent=c.announcement; ann.style.display='block'; }
+    else ann.style.display='none';
+  }catch(e){}
+}
+
+async function enterApp(){
+  showApp();
+  await loadConfig();
+  document.getElementById('adminBtn').style.display = (currentUser&&currentUser.role==='admin')?'':'none';
+}
+
+function bootAuth(){
+  // 进入页先判断登录态
+  fetch('/api/me').then(r=>r.json()).then(d=>{
+    if(d.user){
+      currentUser=d.user; enterApp();
+    }else{
+      currentUser=null; refreshAuthUI(); showAuth();
+    }
+  }).catch(()=>{ refreshAuthUI(); showAuth(); });
+}
+bootAuth();
 </script>
 </body>
 </html>
