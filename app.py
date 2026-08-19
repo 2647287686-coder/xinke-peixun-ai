@@ -20,7 +20,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import requests
 from bs4 import BeautifulSoup
 
-from db import db, make_db_uri, User, UsageLog, Setting, ResetRequest
+from db import db, make_db_uri, User, UsageLog, Setting, ResetRequest, Feedback
 
 try:
     import jieba
@@ -538,16 +538,19 @@ def ask():
                 yield sse("token", piece + "\n")
         # 埋点：记录本次提问（含回答预览）。
         # SSE 生成器在请求上下文之外执行，db 提交需显式绑定应用上下文。
+        log_id = None
         try:
             with app.app_context():
-                db.session.add(UsageLog(user_id=uid, question=q,
-                                        answer_preview=acc[:200],
-                                        kb_count=len(kb_chunks),
-                                        web_count=len(web_results)))
+                log = UsageLog(user_id=uid, question=q,
+                               answer_preview=acc[:200],
+                               kb_count=len(kb_chunks),
+                               web_count=len(web_results))
+                db.session.add(log)
                 db.session.commit()
+                log_id = log.id
         except Exception as e:
             print(f"[USAGE] 写入失败: {e}")
-        yield sse("done", {"kb_count": len(kb_chunks), "web_count": len(web_results)})
+        yield sse("done", {"kb_count": len(kb_chunks), "web_count": len(web_results), "log_id": log_id})
 
     return Response(gen(), mimetype="text/event-stream")
 
@@ -686,6 +689,140 @@ def admin_reset():
         {ResetRequest.status: "done"})
     db.session.commit()
     return jsonify({"ok": True})
+
+
+# ---- 员工端：答案反馈 👍/👎 ----
+@app.route("/api/feedback", methods=["POST"])
+def submit_feedback():
+    uid = session.get("user_id")
+    if not uid:
+        return jsonify({"error": "请先登录"}), 401
+    data = request.get_json(silent=True) or {}
+    log_id = data.get("log_id")
+    rating = data.get("rating")  # "up" | "down"
+    comment = (data.get("comment") or "").strip() or None
+    if not log_id or rating not in ("up", "down"):
+        return jsonify({"error": "参数无效"}), 400
+    log = db.session.get(UsageLog, log_id)
+    if not log or log.user_id != uid:
+        return jsonify({"error": "记录不存在或无权操作"}), 404
+    existing = Feedback.query.filter_by(usage_log_id=log_id, user_id=uid).first()
+    if existing:
+        existing.rating = rating
+        existing.comment = comment
+    else:
+        db.session.add(Feedback(usage_log_id=log_id, user_id=uid,
+                                 rating=rating, comment=comment))
+    db.session.commit()
+    return jsonify({"ok": True})
+
+
+# ---- 后台：热门问题榜（近 30 天 Top 10）----
+@app.route("/api/admin/hot-questions")
+@admin_required
+def admin_hot_questions():
+    since = datetime.utcnow() - timedelta(days=30)
+    cnt = db.func.count(UsageLog.id)
+    rows = (db.session.query(UsageLog.question, cnt.label("c"))
+            .filter(UsageLog.created_at >= since)
+            .group_by(UsageLog.question)
+            .order_by(cnt.desc())
+            .limit(10).all())
+    return jsonify({"items": [{"question": r.question, "count": r.c} for r in rows]})
+
+
+# ---- 后台：反馈管理列表 ----
+@app.route("/api/admin/feedback")
+@admin_required
+def admin_feedback_list():
+    rating = request.args.get("rating", "")
+    per = 50
+    query = Feedback.query
+    if rating in ("up", "down"):
+        query = query.filter(Feedback.rating == rating)
+    total = query.count()
+    items = (query.order_by(Feedback.created_at.desc()).limit(per).all())
+    result = []
+    for f in items:
+        log = db.session.get(UsageLog, f.usage_log_id) if f.usage_log_id else None
+        u = db.session.get(User, f.user_id) if f.user_id else None
+        result.append({
+            "id": f.id, "rating": f.rating, "comment": f.comment or "",
+            "created_at": f.created_at.isoformat() if f.created_at else None,
+            "user_phone": u.phone if u else "-",
+            "user_name": u.name if u else "-",
+            "question": log.question if log else "-",
+            "answer_preview": (log.answer_preview[:120] + "...") if log and log.answer_preview and len(log.answer_preview) > 120 else (log.answer_preview or "" if log else ""),
+        })
+    return jsonify({"total": total, "items": result})
+
+
+# ---- 后台：在线管理知识库 ----
+_KB_NAME_RE = re.compile(r"^[\w\-]+\.txt$")
+
+
+@app.route("/api/admin/kb/files")
+@admin_required
+def admin_kb_files():
+    files = []
+    if os.path.isdir(KB_DIR):
+        for f in sorted(os.listdir(KB_DIR)):
+            if f.endswith(".txt"):
+                path = os.path.join(KB_DIR, f)
+                size = os.path.getsize(path)
+                source = os.path.splitext(f)[0]
+                chunk_count = sum(1 for c in _chunks if c.get("source") == source)
+                files.append({"name": f, "size": size, "chunks": chunk_count})
+    return jsonify({"items": files, "total_chunks": len(_chunks)})
+
+
+@app.route("/api/admin/kb/file/<filename>")
+@admin_required
+def admin_kb_read(filename):
+    if not _KB_NAME_RE.match(filename):
+        return jsonify({"error": "文件名不合法（仅允许字母数字下划线横线.txt）"}), 400
+    path = os.path.join(KB_DIR, filename)
+    if not os.path.exists(path):
+        return jsonify({"error": "文件不存在"}), 404
+    with open(path, encoding="utf-8", errors="ignore") as fh:
+        content = fh.read()
+    return jsonify({"name": filename, "content": content})
+
+
+@app.route("/api/admin/kb/file/<filename>", methods=["POST"])
+@admin_required
+def admin_kb_save(filename):
+    if not _KB_NAME_RE.match(filename):
+        return jsonify({"error": "文件名不合法（仅允许字母数字下划线横线.txt）"}), 400
+    data = request.get_json(silent=True) or {}
+    content = data.get("content", "")
+    os.makedirs(KB_DIR, exist_ok=True)
+    path = os.path.join(KB_DIR, filename)
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(content)
+    return jsonify({"ok": True, "name": filename})
+
+
+@app.route("/api/admin/kb/file/<filename>", methods=["DELETE"])
+@admin_required
+def admin_kb_delete(filename):
+    if not _KB_NAME_RE.match(filename):
+        return jsonify({"error": "文件名不合法"}), 400
+    path = os.path.join(KB_DIR, filename)
+    if not os.path.exists(path):
+        return jsonify({"error": "文件不存在"}), 404
+    os.remove(path)
+    return jsonify({"ok": True, "deleted": filename})
+
+
+@app.route("/api/admin/kb/reload", methods=["POST"])
+@admin_required
+def admin_kb_reload():
+    try:
+        load_kb()
+        return jsonify({"ok": True, "kb_chunks": len(_chunks)})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":

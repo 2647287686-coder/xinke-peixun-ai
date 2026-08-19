@@ -82,6 +82,8 @@
   .mact{font-size:12px;color:var(--brand-d);background:#fff2ef;border:1px solid #f6d6cf;
     padding:3px 10px;border-radius:14px;line-height:1.4}
   .mact:active{background:#f6d6cf}
+  .mact.voted{background:#e8f7ee;border-color:#b8e6cc;color:#1a9d54;pointer-events:none}
+  .mact.voted-down{background:#fff2ef;border-color:#f6d6cf;color:var(--brand-d);pointer-events:none}
 
   .chips{display:flex;gap:8px;overflow-x:auto;padding:0 12px 8px;scrollbar-width:none}
   .chips::-webkit-scrollbar{display:none}
@@ -301,6 +303,32 @@ function ensureSources(d){
   if(wrap.children.length) d._bubble.appendChild(wrap);
 }
 
+/* ---------- 答案反馈 👍/👎 ---------- */
+function addFeedbackBtns(acts, logId){
+  if(!acts || acts._fbAdded) return;
+  acts._fbAdded = true;
+  const up=document.createElement('button'); up.className='mact'; up.textContent='👍';
+  const dn=document.createElement('button'); dn.className='mact'; dn.textContent='👎';
+  up.onclick=()=>submitFeedback(logId,'up',up,dn);
+  dn.onclick=()=>{
+    const c=prompt('请简要描述问题（选填）：');
+    submitFeedback(logId,'down',up,dn,c||'');
+  };
+  acts.appendChild(up); acts.appendChild(dn);
+}
+async function submitFeedback(logId, rating, upBtn, dnBtn, comment){
+  try{
+    const r=await fetch('/api/feedback',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({log_id:logId, rating, comment:comment||null})});
+    const d=await r.json();
+    if(d.ok){
+      if(rating==='up'){upBtn.classList.add('voted'); upBtn.textContent='👍 已点赞';}
+      else{dnBtn.classList.add('voted-down'); dnBtn.textContent='👎 已反馈';}
+      toast('感谢反馈！');
+    }else{toast(d.error||'反馈失败');}
+  }catch(e){toast('网络错误');}
+}
+
 /* ---------- 流式问答 ---------- */
 async function stream(bot, question){
   let acc='', srcData=null;
@@ -323,7 +351,11 @@ async function stream(bot, question){
         let data; try{data=JSON.parse(dt)}catch(e){continue}
         if(ev==='sources'){srcData=data; bot._src=data;}
         else if(ev==='token'){acc+=data; bot._text=acc; render(bot._bubble,acc);}
-        else if(ev==='done'){ if(showSrc&&srcData) ensureSources(bot); }
+        else if(ev==='done'){
+          bot._logId=data.log_id||null;
+          if(showSrc&&srcData) ensureSources(bot);
+          if(data.log_id) addFeedbackBtns(bot._acts, data.log_id);
+        }
         else if(ev==='error'){acc+='\n⚠️ '+data.message; bot._text=acc; render(bot._bubble,acc);}
       }
     }

@@ -56,3 +56,13 @@ class ResetRequest(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), index=True)
     status = db.Column(db.String(20), default="pending")  # pending | done
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class Feedback(db.Model):
+    __tablename__ = "feedback"
+    id = db.Column(db.Integer, primary_key=True)
+    usage_log_id = db.Column(db.Integer, db.ForeignKey("usage_log.id"), index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), index=True)
+    rating = db.Column(db.String(10), nullable=False)  # up | down
+    comment = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)

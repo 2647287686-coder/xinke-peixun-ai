@@ -73,6 +73,34 @@
   .qitem .qa{font-size:12px;color:var(--sub);margin-top:4px;white-space:pre-wrap;word-break:break-word}
   .qitem .qm{font-size:11px;color:var(--sub);margin-top:6px}
   @media(max-width:560px){ table .col-hide{display:none} }
+  /* 热门问题榜 */
+  .hotq{padding:10px 0;border-bottom:1px solid var(--line)}
+  .hotq:last-child{border-bottom:none}
+  .hotq .hq-rank{display:inline-block;width:22px;height:22px;border-radius:6px;background:var(--bg);
+    color:var(--sub);font-size:12px;font-weight:700;text-align:center;line-height:22px;margin-right:8px}
+  .hotq .hq-rank.top1{background:var(--brand);color:#fff}
+  .hotq .hq-rank.top2{background:#e8907f;color:#fff}
+  .hotq .hq-rank.top3{background:#f0b8a8;color:#fff}
+  .hotq .hq-q{font-size:14px;display:inline}
+  .hotq .hq-c{font-size:12px;color:var(--sub);margin-left:8px}
+  /* 反馈表格 */
+  .fb-up{color:var(--ok);font-weight:600}
+  .fb-down{color:var(--brand-d);font-weight:600}
+  select{border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:14px;
+    background:var(--bg);outline:none;font-family:inherit}
+  select:focus{border-color:var(--brand)}
+  /* 知识库管理 */
+  .kb-wrap{display:flex;gap:16px;flex-wrap:wrap}
+  .kb-side{flex:0 0 220px;max-height:420px;overflow-y:auto}
+  .kb-main{flex:1;min-width:300px}
+  .kb-file{padding:9px 12px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;
+    cursor:pointer;font-size:13px;display:flex;justify-content:space-between;align-items:center}
+  .kb-file:hover{background:#fafafa}
+  .kb-file.active{background:#fff2ef;border-color:var(--brand)}
+  .kb-file .kf-name{font-weight:600;word-break:break-all}
+  .kb-file .kf-meta{font-size:11px;color:var(--sub);white-space:nowrap;margin-left:8px}
+  .kb-file .kf-del{color:#cf2d2d;cursor:pointer;margin-left:6px;font-size:15px}
+  #kbEditor{font-family:"Cascadia Code",Consolas,monospace;font-size:13px;line-height:1.5}
 </style>
 </head>
 <body>
@@ -88,6 +116,8 @@
   <div class="tabs">
     <button class="tab on" data-p="overview">数据概览</button>
     <button class="tab" data-p="users">用户管理</button>
+    <button class="tab" data-p="feedback">反馈管理</button>
+    <button class="tab" data-p="kb">知识库</button>
     <button class="tab" data-p="settings">公告与设置</button>
   </div>
 
@@ -102,6 +132,10 @@
     <div class="box">
       <h3>DeepSeek API 余额</h3>
       <div id="balanceArea"><div class="hint">加载中…</div></div>
+    </div>
+    <div class="box">
+      <h3>🔥 热门问题榜（近 30 天 Top 10）</h3>
+      <div id="hotQArea"><div class="hint">加载中…</div></div>
     </div>
   </section>
 
@@ -121,6 +155,50 @@
         <tbody id="userRows"></tbody>
       </table>
       <div id="userEmpty" class="hint" style="padding:14px;text-align:center;display:none">暂无用户</div>
+    </div>
+  </section>
+
+  <!-- 反馈管理 -->
+  <section class="panel" id="p-feedback">
+    <div class="search">
+      <select id="fbFilter" onchange="loadFeedback(1)">
+        <option value="">全部反馈</option>
+        <option value="down">👎 待改进</option>
+        <option value="up">👍 有用</option>
+      </select>
+    </div>
+    <div class="box" style="padding:6px 6px">
+      <table>
+        <thead><tr>
+          <th>评价</th><th>员工</th><th>提问内容</th>
+          <th class="col-hide">回答预览</th><th class="col-hide">评论</th><th class="col-hide">时间</th>
+        </tr></thead>
+        <tbody id="fbRows"></tbody>
+      </table>
+      <div id="fbEmpty" class="hint" style="padding:14px;text-align:center;display:none">暂无反馈</div>
+    </div>
+  </section>
+
+  <!-- 知识库管理 -->
+  <section class="panel" id="p-kb">
+    <div class="search">
+      <input type="text" id="kbNewName" placeholder="新文件名（不含 .txt）" style="flex:0 0 220px" />
+      <button class="btn sm" onclick="newKbFile()">新建文件</button>
+      <button class="btn sm ghost" onclick="reloadKb()" style="margin-left:auto">🔄 重新加载知识库</button>
+    </div>
+    <div class="kb-wrap">
+      <div class="box kb-side">
+        <h3>资料文件 <span id="kbTotalChunks" style="font-size:12px;color:var(--sub);font-weight:400"></span></h3>
+        <div id="kbFileList"></div>
+      </div>
+      <div class="box kb-main">
+        <h3 id="kbEditorTitle">选择文件编辑</h3>
+        <textarea id="kbEditor" rows="16" placeholder="点击左侧文件开始编辑，或新建文件。编辑后点保存，再点上方「重新加载」生效。" ></textarea>
+        <div style="display:flex;gap:10px;margin-top:10px">
+          <button class="btn" onclick="saveKbFile()">💾 保存</button>
+          <button class="btn ghost" onclick="deleteKbFile()">🗑 删除该文件</button>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -165,6 +243,8 @@ document.querySelectorAll('.tab').forEach(b=>{
     document.querySelectorAll('.panel').forEach(x=>x.classList.remove('on'));
     b.classList.add('on'); $('p-'+b.dataset.p).classList.add('on');
     if(b.dataset.p==='users') loadUsers(1);
+    if(b.dataset.p==='feedback') loadFeedback(1);
+    if(b.dataset.p==='kb') loadKbFiles();
   };
 });
 
@@ -178,6 +258,7 @@ async function loadStats(){
   $('hTitle').textContent='总部后台 · '+d.assistant_name;
   $('nameInput').value=d.assistant_name;
   $('annInput').value=d.announcement||'';
+  loadHotQuestions();
   // 余额
   const b=await api('/api/admin/balance');
   const ba=$('balanceArea');
@@ -279,6 +360,101 @@ async function saveName(){
   toast(d.ok?'已改名':'失败：'+(d.error||''));
   if(d.ok) $('hTitle').textContent='总部后台 · '+n;
 }
+
+/* ---- 热门问题榜 ---- */
+async function loadHotQuestions(){
+  const d=await api('/api/admin/hot-questions');
+  const area=$('hotQArea');
+  if(d.error||!d.items||!d.items.length){
+    area.innerHTML='<div class="hint">暂无提问数据</div>'; return;
+  }
+  area.innerHTML=d.items.map((it,i)=>{
+    const rc=i<3?'top'+(i+1):'';
+    return '<div class="hotq"><span class="hq-rank '+rc+'">'+(i+1)+'</span>'
+      +'<span class="hq-q">'+escapeHtml(it.question)+'</span>'
+      +'<span class="hq-c">'+it.count+' 次</span></div>';
+  }).join('');
+}
+
+/* ---- 反馈管理 ---- */
+async function loadFeedback(page){
+  const rating=$('fbFilter').value;
+  const d=await api('/api/admin/feedback?rating='+rating);
+  const tb=$('fbRows'); tb.innerHTML='';
+  if(!d.items||!d.items.length){ $('fbEmpty').style.display='block'; return; }
+  $('fbEmpty').style.display='none';
+  d.items.forEach(f=>{
+    const tr=document.createElement('tr');
+    const t=(f.created_at||'').replace('T',' ').slice(0,16);
+    tr.innerHTML=`<td><span class="${f.rating==='up'?'fb-up':'fb-down'}">${f.rating==='up'?'👍 有用':'👎 待改进'}</span></td>`
+      +`<td>${f.user_name||'-'}<br><span style="font-size:11px;color:var(--sub)">${f.user_phone}</span></td>`
+      +`<td>${escapeHtml(f.question)}</td>`
+      +`<td class="col-hide"><div style="max-width:280px;white-space:pre-wrap;word-break:break-word;font-size:12px;color:var(--sub)">${escapeHtml(f.answer_preview||'')}</div></td>`
+      +`<td class="col-hide">${escapeHtml(f.comment||'-')}</td>`
+      +`<td class="col-hide">${t}</td>`;
+    tb.appendChild(tr);
+  });
+}
+
+/* ---- 知识库管理 ---- */
+let kbCurrentFile=null;
+async function loadKbFiles(){
+  const d=await api('/api/admin/kb/files');
+  if(d.error){toast(d.error);return;}
+  $('kbTotalChunks').textContent='（'+d.total_chunks+' 片段）';
+  const list=$('kbFileList');
+  list.innerHTML='';
+  if(!d.items.length){ list.innerHTML='<div class="hint">暂无资料文件</div>'; return; }
+  d.items.forEach(f=>{
+    const el=document.createElement('div'); el.className='kb-file';
+    if(f.name===kbCurrentFile) el.classList.add('active');
+    el.innerHTML='<span class="kf-name">'+f.name+'</span>'
+      +'<span class="kf-meta">'+f.chunks+'段</span>';
+    el.onclick=()=>editKbFile(f.name);
+    list.appendChild(el);
+  });
+}
+async function editKbFile(name){
+  const d=await api('/api/admin/kb/file/'+name);
+  if(d.error){toast(d.error);return;}
+  kbCurrentFile=name;
+  $('kbEditorTitle').textContent='编辑：'+name;
+  $('kbEditor').value=d.content||'';
+  loadKbFiles();
+}
+async function saveKbFile(){
+  if(!kbCurrentFile){toast('请先选择或新建文件');return;}
+  const content=$('kbEditor').value;
+  const d=await api('/api/admin/kb/file/'+kbCurrentFile,{method:'POST',body:JSON.stringify({content})});
+  toast(d.ok?'已保存 '+kbCurrentFile:'失败：'+(d.error||''));
+  if(d.ok) loadKbFiles();
+}
+async function deleteKbFile(){
+  if(!kbCurrentFile){toast('请先选择文件');return;}
+  if(!confirm('确认删除「'+kbCurrentFile+'」？删除后需重新加载知识库生效。')) return;
+  const d=await fetch('/api/admin/kb/file/'+kbCurrentFile,{method:'DELETE'}).then(r=>r.json());
+  toast(d.ok?'已删除 '+d.deleted:'失败：'+(d.error||''));
+  if(d.ok){ kbCurrentFile=null; $('kbEditorTitle').textContent='选择文件编辑'; $('kbEditor').value=''; loadKbFiles(); }
+}
+function newKbFile(){
+  const name=$('kbNewName').value.trim();
+  if(!name){toast('请输入文件名');return;}
+  const fn=name.endsWith('.txt')?name:name+'.txt';
+  if(!/^[\w\-]+\.txt$/.test(fn)){toast('文件名仅允许字母数字下划线横线');return;}
+  kbCurrentFile=fn;
+  $('kbEditorTitle').textContent='新建：'+fn;
+  $('kbEditor').value='';
+  $('kbNewName').value='';
+  toast('已创建空白文件，编辑后点保存');
+  loadKbFiles();
+}
+async function reloadKb(){
+  if(!confirm('重新加载知识库？这可能需要几秒钟。')) return;
+  const d=await api('/api/admin/kb/reload',{method:'POST'});
+  toast(d.ok?'知识库已重载（'+d.kb_chunks+' 片段）':'失败：'+(d.error||''));
+  if(d.ok) loadKbFiles();
+}
+
 async function logout(){
   await api('/api/logout',{method:'POST'});
   location.href='/';
