@@ -376,6 +376,12 @@ with app.app_context():
     init_settings()
     seed_admin()
 
+# 启动时预加载知识库（gunicorn 多 worker 下每个进程各自加载）
+try:
+    load_kb()
+except Exception as e:
+    print(f"[KB] 启动加载失败（将在首次提问时重试）: {e}")
+
 
 @app.route("/")
 def index():
