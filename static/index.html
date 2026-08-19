@@ -236,7 +236,7 @@ const q=document.getElementById('q');
 const send=document.getElementById('send');
 const chips=document.getElementById('chips');
 const toolbar=document.getElementById('toolbar');
-const toolsBtn=document.getElementById('toolsBtn');
+// 工具栏默认展开；如需折叠可手动 toolbar.classList.toggle('open')
 let busy=false, lastQ='', showSrc=false;
 
 marked.setOptions({breaks:true});
@@ -346,17 +346,14 @@ async function regenerate(){
   busy=false; send.disabled=false;
 }
 
-/* ---------- 工具栏：折叠收纳 ---------- */
-toolsBtn.onclick=()=>{
-  const open=toolbar.classList.toggle('open');
-  toolsBtn.classList.toggle('on',open);
-};
-document.getElementById('tRegen').onclick=()=>{ toolsBtn.click(); regenerate(); };
+/* ---------- 工具栏 ---------- */
+toolbar.classList.add('open');
+document.getElementById('tRegen').onclick=()=>{ regenerate(); };
 document.getElementById('tClear').onclick=()=>{
   chat.innerHTML='';
   const e=document.createElement('div'); e.className='empty'; e.id='empty';
   e.innerHTML='<div class="big">👋</div><div>对话已清空</div><div style="margin-top:6px">工作上有不懂的，继续问我吧</div>';
-  chat.appendChild(e); lastQ=''; toast('已清空对话'); toolsBtn.click();
+  chat.appendChild(e); lastQ=''; toast('已清空对话');
 };
 document.getElementById('tExport').onclick=()=>{
   const msgs=[...chat.querySelectorAll('.msg')].map(m=>{
@@ -366,7 +363,7 @@ document.getElementById('tExport').onclick=()=>{
   });
   if(!msgs.length){ toast('暂无对话内容'); return; }
   const text='【'+currentName+' 对话记录】\n'+new Date().toLocaleString()+'\n\n'+msgs.join('\n\n');
-  copyText(text,'全部对话'); toolsBtn.click();
+  copyText(text,'全部对话');
 };
 document.getElementById('tSrc').onclick=(ev)=>{
   showSrc=!showSrc;
@@ -375,7 +372,7 @@ document.getElementById('tSrc').onclick=(ev)=>{
     const old=d._bubble.querySelector('.sources'); if(old) old.remove();
     if(showSrc && d._src) ensureSources(d);
   });
-  toast(showSrc?'已显示参考来源':'已隐藏参考来源'); toolsBtn.click();
+  toast(showSrc?'已显示参考来源':'已隐藏参考来源');
 };
 
 /* ---------- 生成器：场景话术 / 流程步骤 / 产品速查 ---------- */
@@ -398,7 +395,7 @@ function openGen(key){
   genBuilder=g.build; genTitle.textContent=g.title; genHint.textContent=g.hint;
   genInput.value=''; genInput.placeholder='请输入：'+g.hint;
   genSheet.classList.add('open'); genMask.classList.add('open');
-  toolsBtn.click(); setTimeout(()=>genInput.focus(),260);
+  setTimeout(()=>genInput.focus(),260);
 }
 function closeGen(){genSheet.classList.remove('open');genMask.classList.remove('open');}
 document.getElementById('tScript').onclick=()=>openGen('script');
