@@ -331,14 +331,21 @@ def init_settings():
     db.session.commit()
 
 def seed_admin():
-    if ADMIN_PHONE and ADMIN_DEFAULT_PASSWORD:
-        if not User.query.filter_by(phone=ADMIN_PHONE).first():
-            u = User(phone=ADMIN_PHONE,
-                     password_hash=generate_password_hash(ADMIN_DEFAULT_PASSWORD),
-                     name="总部主账号", role="admin")
-            db.session.add(u)
-            db.session.commit()
-            print(f"[AUTH] 已创建总部主账号 {ADMIN_PHONE}")
+    # 主账号始终以环境变量为准：不存在则创建，已存在则同步角色与密码。
+    # 这样改 ADMIN_PHONE/ADMIN_DEFAULT_PASSWORD + 重新部署即可随时修正主账号。
+    if not (ADMIN_PHONE and ADMIN_DEFAULT_PASSWORD):
+        return
+    u = User.query.filter_by(phone=ADMIN_PHONE).first()
+    if not u:
+        u = User(phone=ADMIN_PHONE, name="总部主账号", role="admin")
+        db.session.add(u)
+        print(f"[AUTH] 已创建总部主账号 {ADMIN_PHONE}")
+    else:
+        print(f"[AUTH] 主账号已存在，同步权限与密码 {ADMIN_PHONE}")
+    u.role = "admin"
+    u.name = u.name or "总部主账号"
+    u.password_hash = generate_password_hash(ADMIN_DEFAULT_PASSWORD)
+    db.session.commit()
 
 def admin_required(f):
     @wraps(f)
@@ -357,6 +364,11 @@ app = Flask(__name__, static_folder=STATIC_DIR)
 app.secret_key = SECRET_KEY
 app.config["SQLALCHEMY_DATABASE_URI"] = make_db_uri()
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+# Neon/云 Postgres 会断开空闲连接；开启 pre-ping + 回收，避免命中死连接导致 500
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+    "pool_pre_ping": True,
+    "pool_recycle": 280,
+}
 db.init_app(app)
 
 with app.app_context():
@@ -453,10 +465,25 @@ def me():
 # ---- 配置（员工端拉取：动态助手名 + 群公告）----
 @app.route("/api/config")
 def config():
-    return jsonify({
-        "assistant_name": get_setting("assistant_name", "喜客丸AI小助手"),
-        "announcement": get_setting("announcement", ""),
-    })
+    def _read():
+        return jsonify({
+            "assistant_name": get_setting("assistant_name", "喜客丸AI小助手"),
+            "announcement": get_setting("announcement", ""),
+        })
+    try:
+        return _read()
+    except Exception as e:
+        # 云 Postgres 偶发连接抖动：回滚后重试一次，仍失败则返回安全默认值
+        print(f"[CONFIG] 首次读取失败，重试: {e}")
+        db.session.rollback()
+        try:
+            return _read()
+        except Exception as e2:
+            print(f"[CONFIG] 读取配置失败: {e2}")
+            return jsonify({
+                "assistant_name": "喜客丸AI小助手",
+                "announcement": "",
+            })
 
 
 # ---- 找回密码：提交重置申请，由总部主账号在后台处理 ----
