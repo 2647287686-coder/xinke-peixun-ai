@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>喜客丸 · 拓店人员试岗期 AI 陪伴助手 规划框架</title>
+<style>
+  :root{
+    --blue-50:#E6F1FB; --blue-100:#B5D4F4; --blue-600:#185FA5; --blue-800:#0C447C;
+    --teal-50:#E1F5EE; --teal-100:#9FE1CB; --teal-600:#0F6E56; --teal-800:#085041;
+    --coral-50:#FAECE7; --coral-100:#F5C4B3; --coral-600:#993C1D; --coral-800:#712B13;
+    --amber-50:#FAEEDA; --amber-100:#FAC775; --amber-600:#854F0B; --amber-800:#633806;
+    --ink:#1f2a37; --muted:#5b6b7d; --line:#e3e8ef; --bg:#f7f9fc; --card:#ffffff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--ink);line-height:1.7;padding:0}
+  .wrap{max-width:880px;margin:0 auto;padding:40px 24px 64px}
+  header{text-align:center;margin-bottom:36px}
+  header h1{font-size:26px;font-weight:700;color:var(--blue-800);letter-spacing:.5px}
+  header .sub{margin-top:10px;font-size:14px;color:var(--muted)}
+  .tagline{margin:18px auto 0;max-width:720px;background:var(--amber-50);border-left:4px solid var(--amber-600);border-radius:8px;padding:14px 18px;font-size:14px;color:var(--amber-800)}
+  .tagline b{color:var(--amber-800)}
+  section{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:24px 26px;margin-bottom:20px;box-shadow:0 1px 3px rgba(20,40,80,.04)}
+  h2{font-size:18px;font-weight:600;color:var(--blue-800);margin-bottom:14px;display:flex;align-items:center;gap:10px}
+  h2 .num{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;background:var(--blue-600);color:#fff;font-size:14px;font-weight:600}
+  h2.teal .num{background:var(--teal-600)}
+  h2.teal{color:var(--teal-800)}
+  h2.amber .num{background:var(--amber-600)}
+  h2.amber{color:var(--amber-800)}
+  p{font-size:14px;color:var(--ink);margin-bottom:10px}
+  table{width:100%;border-collapse:collapse;font-size:14px;margin-top:6px}
+  th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:var(--blue-50);color:var(--blue-800);font-weight:600;width:34%}
+  .layer{margin-bottom:16px}
+  .layer-head{font-weight:600;font-size:15px;color:var(--blue-800);margin-bottom:6px}
+  .layer.teal .layer-head{color:var(--teal-800)}
+  .layer ul{list-style:none;padding-left:4px}
+  .layer li{font-size:14px;padding:5px 0 5px 22px;position:relative;color:var(--ink)}
+  .layer li:before{content:"";position:absolute;left:4px;top:13px;width:7px;height:7px;border-radius:50%;background:var(--blue-600)}
+  .layer.teal li:before{background:var(--teal-600)}
+  .layer li .star{color:#d97706;font-weight:600}
+  /* day task blocks */
+  .day{margin-bottom:16px;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .day-head{display:flex;align-items:center;gap:10px;padding:10px 16px;font-weight:600;font-size:15px;color:#fff}
+  .day.d1 .day-head{background:var(--blue-600)}
+  .day.d2 .day-head{background:#378ADD}
+  .day.d3 .day-head{background:var(--teal-600)}
+  .day .day-tag{background:rgba(255,255,255,.22);padding:2px 10px;border-radius:20px;font-size:12px;font-weight:600}
+  .day-body{padding:12px 18px}
+  .day-body ol{padding-left:22px;font-size:14px}
+  .day-body li{padding:4px 0;color:var(--ink)}
+  .verify{margin-top:8px;padding:8px 12px;background:var(--teal-50);border-left:3px solid var(--teal-600);border-radius:6px;font-size:13px;color:var(--teal-800)}
+  /* 新员工必读板块 */
+  .mr-summary{display:flex;align-items:center;gap:12px;margin-bottom:14px;padding:10px 14px;background:var(--blue-50);border-radius:10px;font-size:13px;color:var(--blue-800)}
+  .mr-progress{flex:1;height:8px;background:#cfe2f5;border-radius:6px;overflow:hidden}
+  .mr-progress > i{display:block;height:100%;background:var(--teal-600);border-radius:6px}
+  .mr-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .mr{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+  .mr-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .mr-title{font-weight:600;font-size:15px;color:var(--blue-800)}
+  .mr-tag{font-size:14px;color:var(--muted)}
+  .badge{font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px;white-space:nowrap}
+  .badge.done{background:var(--teal-50);color:var(--teal-600);border:1px solid var(--teal-600)}
+  .badge.todo{background:var(--amber-50);color:var(--amber-600);border:1px solid var(--amber-600)}
+  .mr-body{font-size:13px;color:var(--muted);line-height:1.6}
+  .mr-foot{font-size:12px;color:var(--ink)}
+  .mr-btn{align-self:flex-start;margin-top:2px;border:none;background:var(--blue-600);color:#fff;font-size:13px;padding:6px 14px;border-radius:8px;cursor:pointer}
+  @media(max-width:560px){.mr-grid{grid-template-columns:1fr}}
+  /* redline */
+  .redline{background:var(--coral-50);border:1px solid var(--coral-100);border-radius:10px;padding:14px 18px;margin-top:8px}
+  .redline .rl-title{color:var(--coral-800);font-weight:600;font-size:14px;margin-bottom:6px}
+  .redline ul{list-style:none;padding:0}
+  .redline li{padding:3px 0 3px 22px;position:relative;font-size:14px;color:var(--coral-800)}
+  .redline li:before{content:"✕";position:absolute;left:4px;top:3px;color:var(--coral-600);font-weight:700}
+  /* journey */
+  .journey{width:100%;margin:8px 0 4px}
+  /* phase */
+  .phase{display:flex;gap:14px;align-items:flex-start;margin-bottom:14px}
+  .phase .ph-num{flex:0 0 auto;width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:14px}
+  .phase.p1 .ph-num{background:var(--blue-600)}
+  .phase.p2 .ph-num{background:#378ADD}
+  .phase.p3 .ph-num{background:var(--teal-600)}
+  .phase.p4 .ph-num{background:#085041}
+  .phase .ph-body{flex:1}
+  .phase .ph-title{font-weight:600;font-size:14px;color:var(--ink);margin-bottom:3px}
+  .phase .ph-title span{color:var(--muted);font-weight:400;font-size:13px;margin-left:8px}
+  .phase .ph-desc{font-size:13.5px;color:var(--muted)}
+  .benefit{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:6px}
+  .benefit .b{background:var(--teal-50);border:1px solid var(--teal-100);border-radius:10px;padding:14px 16px;font-size:14px;color:var(--teal-800)}
+  .benefit .b b{display:block;font-size:15px;margin-bottom:3px}
+  .benefit .b.warn{background:var(--amber-50);border-color:var(--amber-50);color:var(--amber-800)}
+  footer{text-align:center;margin-top:28px;font-size:13px;color:var(--muted)}
+  footer b{color:var(--blue-800)}
+  @media(max-width:560px){.benefit{grid-template-columns:1fr}th{width:42%}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>拓店人员试岗期 AI 陪伴助手</h1>
+    <div class="sub">规划框架 · 喜客丸拓店岗 · 2026.08</div>
+    <div class="tagline">核心机制：账号由<b>总部后台代建</b>（录入入职日期 + 分配岗位）→ 7 天试岗 = <b>前 3 天在「新员工必读」板块分类自学</b>（产品 / 抖音来客云连锁 / 门店入驻流程（含异议话术） / 仅售预包装备案，<b>不按天强制、完成即标记已学 / 待学</b>，<b>须学完所有板块方可参加总部开启的考试</b>；由总部在<b>账号管理页随时指定开启 20 题随机测验</b>：满分 100 / 20 分钟 / 考中不显答案 / 可断点续答） + <b>后 4 天实操考核</b>（12 家拜访 + 1 家成功入驻 + Day6 短会）→ 总部判定 <b>通过转正 / 触发红线即淘汰</b>。AI 全程按天引导、按项提醒、按红线预警；<b>账号详情页</b>聚合展示学习 / 考试 / 实操状态。</div>
+  </header>
+
+  <section>
+    <h2><span class="num">1</span>总体目标与衡量指标</h2>
+    <table>
+      <tr><th>维度</th><th>衡量指标（KPI）</th></tr>
+      <tr><td>学习完成</td><td>「新员工必读」4 个板块完成率（已学/待学），总部后台<b>账号详情页</b>按人查看，识别未覆盖盲区、针对性督促；<b>须全部已学完方可参加总部开启的考试</b></td></tr>
+      <tr><td>知识掌握</td><td>由总部在账号管理页<b>指定开启考试</b>后，员工在小助手答题：从 30 题题库<b>随机均衡抽 20 题</b>（满分 100，每题 5 分），<b>20 分钟</b>限时、到点自动结算、<b>可断点续答</b>；考后显示答案+分数 → 总部在<b>账号详情页</b>查看每人分数与逐题详情、按错题分布识别盲点（<b>不设硬性通过线</b>）</td></tr>
+      <tr><td>实操达标</td><td>Day 4–7 共 12 家有效拜访 + 4 天内跑通 1 家成功入驻</td></tr>
+      <tr><td>过程合规</td><td>每日 20:00 前提交拓店信息登记表，无连续 2 天过程量为 0</td></tr>
+      <tr><td>行为红线</td><td>零触发：虚假拜访 / 飞单切单 / 旷工 / 不服从管理（任一即淘汰）</td></tr>
+      <tr><td>用人决策</td><td>Day 7 末总部以"拜访数量为主、具体表现为辅"判定通过或淘汰</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2><span class="num">2</span>试岗期旅程（7 天闭环）</h2>
+    <svg class="journey" viewBox="0 0 680 410" role="img">
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </marker>
+      </defs>
+      <!-- Day1-3 学习：新员工必读板块 -->
+      <g>
+        <rect x="40" y="60" width="260" height="160" rx="12" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.6"/>
+        <text x="170" y="86" text-anchor="middle" font-size="15" font-weight="600" fill="#0C447C">学习培训</text>
+        <text x="170" y="104" text-anchor="middle" font-size="12" fill="#185FA5">前 3 天</text>
+        <line x1="60" y1="116" x2="280" y2="116" stroke="#185FA5" stroke-width="0.4" opacity="0.5"/>
+        <text x="170" y="136" text-anchor="middle" font-size="13" font-weight="600" fill="#0C447C">「新员工必读」板块</text>
+        <text x="170" y="156" text-anchor="middle" font-size="12" fill="#0C447C">分类自学 · 已学/待学 状态</text>
+        <text x="170" y="176" text-anchor="middle" font-size="12" fill="#185FA5">不按天强制，完成即标记</text>
+        <text x="170" y="196" text-anchor="middle" font-size="12" fill="#185FA5"><tspan font-weight="600">Day 3</tspan> 总部开启 20 题小测</text>
+      </g>
+      <line x1="300" y1="140" x2="380" y2="140" stroke="#378ADD" stroke-width="1.5" marker-end="url(#ar)"/>
+      <!-- Day4-7 实操 -->
+      <g>
+        <rect x="380" y="60" width="260" height="160" rx="12" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.6"/>
+        <text x="510" y="86" text-anchor="middle" font-size="15" font-weight="600" fill="#085041">实操考核</text>
+        <text x="510" y="104" text-anchor="middle" font-size="12" fill="#0F6E56">Day 4 – 7</text>
+        <line x1="400" y1="116" x2="620" y2="116" stroke="#0F6E56" stroke-width="0.4" opacity="0.5"/>
+        <text x="510" y="135" text-anchor="middle" font-size="12" fill="#085041">4 天跑 12 家(每日 ≥ 3 家)</text>
+        <text x="510" y="155" text-anchor="middle" font-size="12" fill="#085041">4 天内跑通 1 家成功入驻</text>
+        <text x="510" y="175" text-anchor="middle" font-size="12" fill="#085041">每日 20:00 前提交登记表</text>
+        <text x="510" y="195" text-anchor="middle" font-size="12" fill="#085041">Day 6 上午 10:00 回公司短会</text>
+      </g>
+      <!-- down arrow -->
+      <line x1="340" y1="220" x2="340" y2="256" stroke="#854F0B" stroke-width="1.5" marker-end="url(#ar)"/>
+      <!-- 总部判定 -->
+      <g>
+        <rect x="240" y="256" width="200" height="46" rx="10" fill="#FAEEDA" stroke="#854F0B" stroke-width="0.8"/>
+        <text x="340" y="284" text-anchor="middle" font-size="14" font-weight="600" fill="#633806">Day 7 末 · 总部判定</text>
+      </g>
+      <!-- split -->
+      <line x1="340" y1="302" x2="190" y2="336" stroke="#854F0B" stroke-width="1.2"/>
+      <line x1="340" y1="302" x2="490" y2="336" stroke="#854F0B" stroke-width="1.2"/>
+      <!-- 通过 -->
+      <g>
+        <rect x="90" y="336" width="200" height="58" rx="10" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.8"/>
+        <text x="190" y="360" text-anchor="middle" font-size="14" font-weight="600" fill="#085041">通过 · 正式转正</text>
+        <text x="190" y="380" text-anchor="middle" font-size="12" fill="#0F6E56">独立跑店，按业绩计酬</text>
+      </g>
+      <!-- 淘汰 -->
+      <g>
+        <rect x="390" y="336" width="200" height="58" rx="10" fill="#FAECE7" stroke="#993C1D" stroke-width="0.8"/>
+        <text x="490" y="360" text-anchor="middle" font-size="14" font-weight="600" fill="#712B13">淘汰 · 触发红线即走</text>
+        <text x="490" y="380" text-anchor="middle" font-size="12" fill="#993C1D">早期止损，降低用人成本</text>
+      </g>
+    </svg>
+  </section>
+
+  <section>
+    <h2 class="amber"><span class="num">3</span>新员工必读 · 学习板块（分类自学，完成即标记）</h2>
+    <div class="mr-summary">
+      <span>学习进度 <b>0 / 4</b> 模块</span>
+      <div class="mr-progress"><i style="width:0%"></i></div>
+      <span class="mr-tag">不按天强制，学完一个标记一个</span>
+    </div>
+
+    <div class="mr-grid">
+      <div class="mr">
+        <div class="mr-top"><span class="mr-title">① 六款肉丸产品知识</span><span class="badge todo">待学习</span></div>
+        <div class="mr-body">西洋参 / 五指毛桃 / 五指毛桃花胶 / 五指毛桃海参 / 海参 / 灵芝 6 款养生肉丸：记牢每款<b>名称、核心卖点、配料亮点、适用人群</b>；准备 30 秒介绍话术；能回答对比类问题（区别 / 老人 / 女性养颜 / 送礼）。</div>
+        <div class="mr-foot">📌 每款产品卡含卖点 + 配料 + 适用人群 + 话术</div>
+        <button class="mr-btn">标记已学完</button>
+      </div>
+
+      <div class="mr">
+        <div class="mr-top"><span class="mr-title">② 抖音来客云连锁体系</span><span class="badge todo">待学习</span></div>
+        <div class="mr-body">基础概念（品牌效应 / 流量共享 / 销量共享 / 零成本入驻 / 资源整合 / 独立核销分账 + 全链路闭环）；<b>门店准入 5 条硬性准则</b>（≥500 户 / 5 分钟生活圈 / 冷冻条件 / 证照齐全 / 配合度高）；"为什么加入"6 大优势话术 + 算账逻辑。</div>
+        <div class="mr-foot">📌 体系框架 + 5 准则判断门店是否合格</div>
+        <button class="mr-btn">标记已学完</button>
+      </div>
+
+      <div class="mr">
+        <div class="mr-top"><span class="mr-title">③ 门店入驻流程（含异议话术）</span><span class="badge todo">待学习</span></div>
+        <div class="mr-body">资质准备（营业执照 / 食品经营许可或仅售预包装备案 / 门头照 / 冻品区环境照 / 法人身份证 + 手机）；品牌授权（个人店 vs 连锁店）；抖音来客提交（1-3 工作日 + 常见驳回：图片不清晰 / 门头照与执照名不一致 / 阴阳画面 / 行业资质缺失 / 地址不精确门牌号）；<b>异议处理话术</b>：没兴趣 / 已有别的平台 / 不会操作 / 抽佣太高 四类标准应对 + 过渡收尾。</div>
+        <div class="mr-foot">📌 提交步骤 + 5 类驳回应对 + 异议话术</div>
+        <button class="mr-btn">标记已学完</button>
+      </div>
+
+      <div class="mr">
+        <div class="mr-top"><span class="mr-title">④ 仅售预包装食品备案</span><span class="badge todo">待学习</span></div>
+        <div class="mr-body">帮店主办理大致流程：申请条件 → 提交材料 → 审核 → 备案完成（1-3 个工作日）；常见补正情形。</div>
+        <div class="mr-foot">📌 备案全流程 + 补正提醒</div>
+        <button class="mr-btn">标记已学完</button>
+      </div>
+    </div>
+    <div class="verify" style="margin-top:14px"><b>说明：</b>前 3 天内完成必读学习（<b>不强制按天</b>）；员工学完一个模块点"标记已学完"即翻为<b>已学习</b>，未学的显示<b>待学习</b>。<b>须学完全部 4 个板块，总部开启的 20 题考试入口才对该员工显示</b>（未学完提示"请先完成新员工必读"）。<b>总部后台账号详情页</b>可查看每个员工各模块 已学/待学 与完成进度。<br><b>内容维护：</b>各板块内容与考试题库均为<b>数据驱动</b>（结构化文件 + 后台「培训内容管理」在线编辑）；你后续更新资料库时，同步更新板块内容与题库题目即可——题库随资料扩充而更新，考试仍从题库<b>随机抽 20 题</b>。</div>
+  </section>
+
+  <section>
+    <h2><span class="num">4</span>功能模块分层（围绕 7 天试岗）</h2>
+    <div class="layer">
+      <div class="layer-head">A · 引导层（按天按项推送，少靠老人口头交代）</div>
+      <ul>
+        <li>账号生命周期：由<b>总部后台代建</b>账号（录入<b>入职日期</b> + 分配岗位）→ 总部在<b>账号管理页随时指定开启考试</b> → Day 4 起进入实操跟踪</li>
+        <li>「新员工必读」板块 <span class="star">★核心</span>：4 个分类学习模块（产品 / 平台 / 入驻含异议话术 / 备案），员工学完点"标记已学完"翻为<b>已学习</b>、未学显示<b>待学习</b>，进度追踪（<b>不按天强制</b>）；<b>须全部已学完，总部开启的考试入口才出现</b></li>
+        <li>考试开启提醒：总部在账号管理页点击"开启考试"后，员工端即时出现考试入口（20 题 / 20 分钟 / 可断点续答）</li>
+        <li>Day 4–7 每日拜访提醒（≥ 3 家、20:00 前提交登记表、跑通 1 家入驻倒计时）</li>
+        <li>Day 6 上午 10:00 短会提醒（整理问题 / 汇报跑店情况）</li>
+      </ul>
+    </div>
+    <div class="layer teal">
+      <div class="layer-head">B · 学习层（「新员工必读」板块内容，前 3 天集中自学、完成即标记）</div>
+      <ul>
+        <li>6 款肉丸产品卡（名称 / 卖点 / 配料 / 适用人群 / 30 秒话术）</li>
+        <li>抖音来客云连锁知识库：基础概念 + 门店准入 5 条准则 + 6 大优势话术</li>
+        <li>门店入驻流程手册：资质准备 / 品牌授权 / 提交步骤 / 常见驳回处理 / <b>异议处理话术</b>（"没兴趣"/"已有平台"/"不会操作"/"抽佣高"）</li>
+        <li>仅售预包装食品备案流程（帮店主办理用）</li>
+      </ul>
+    </div>
+    <div class="layer">
+      <div class="layer-head">C · 问答层（实操路上随时问，已有能力增强）</div>
+      <ul>
+        <li>多轮追问：跑店途中遇到问题连续追问，不必重述背景</li>
+        <li>知识盲区收集 <span class="star">★反哺闭环</span>：汇总检索为空 / 被点👎 的问题 → 后台"待补充知识"清单</li>
+        <li>语音输入：跑店路上手忙，问答直接说</li>
+      </ul>
+    </div>
+    <div class="layer teal">
+      <div class="layer-head">D · 管理层（考核决策 + 红线预警）</div>
+      <ul>
+        <li>后台<b>新建员工账号</b>模块：总部代建账号、录入<b>入职日期</b>、分配岗位，可单个或批量创建并下发临时密码</li>
+        <li>员工<b>账号详情页</b> <span class="star">★核心</span>：聚合展示该员工 <b>学习详情</b>（必读 4 个板块 已学/待学 + 完成进度）+ <b>考试分数与逐题详情</b> + 实操进度，总部一眼看清培训状态</li>
+        <li>Day 3 20 题选择测验模块 <span class="star">★核心</span>：总部在账号管理页<b>指定开启</b>，30 题题库<b>均衡抽 20 题</b>、满分 100、20 分钟限时、到点自动结算、<b>断点续答</b>（服务端存抽题/作答/截止时间）；考后显示正确答案+分数；员工<b>账号详情页</b>展示分数与逐题详情，后台按人/按题查看错题分布</li>
+        <li>实过程量看板：12 家拜访进度 + 1 家入驻进度，按人可视化</li>
+        <li>每日登记表汇总 / 导出 Excel</li>
+        <li><strong>淘汰红线预警</strong>：检测到疑似虚假拜访 / 连续 2 天过程量为 0 等情形自动告警</li>
+      </ul>
+    </div>
+
+    <div class="redline">
+      <div class="rl-title">触发即淘汰的 4 条红线（必须让新人提前背熟）</div>
+      <ul>
+        <li>虚假拜访：伪造定位打卡 / 伪造商家信息 / 对紧闭店门头拍照</li>
+        <li>飞单 / 切单：将公司意向客户转移给外部代理商</li>
+        <li>连续 2 天过程量为 0 或无故旷工</li>
+        <li>不服从管理：不按规范要求执行，脱离总部行动且没有有效工作量</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="teal"><span class="num">5</span>知识底座演进</h2>
+    <p><b>现状</b>：扁平 txt，无分类、无岗位关联。</p>
+    <p><b>升级方向</b>：</p>
+    <ul style="list-style:none;padding-left:4px">
+      <li style="padding:5px 0 5px 22px;position:relative;font-size:14px"><span style="position:absolute;left:4px;top:13px;width:7px;height:7px;border-radius:50%;background:var(--teal-600)"></span>分类标签：<b>产品 / 平台知识 / 入驻流程 / 备案流程 / 话术 / 红线 / 制度</b>，检索可按类筛选</li>
+      <li style="padding:5px 0 5px 22px;position:relative;font-size:14px"><span style="position:absolute;left:4px;top:13px;width:7px;height:7px;border-radius:50%;background:var(--teal-600)"></span>岗位关联：每篇资料标注适用岗位（拓店岗 / 门店岗 / 总部），按岗精准推送</li>
+      <li style="padding:5px 0 5px 22px;position:relative;font-size:14px"><span style="position:absolute;left:4px;top:13px;width:7px;height:7px;border-radius:50%;background:var(--teal-600)"></span>时效标记：备案流程 / 入驻政策等可能更新的资料加有效期，过期自动提醒</li>
+      <li style="padding:5px 0 5px 22px;position:relative;font-size:14px"><span style="position:absolute;left:4px;top:13px;width:7px;height:7px;border-radius:50%;background:var(--teal-600)"></span>新增结构化数据：①<strong>6 款肉丸产品卡</strong>（名称/卖点/配料/适用人群/30 秒话术）②<strong>门店准入 5 条准则</strong> ③<strong>入驻流程步骤化</strong> ④<strong>4 条淘汰红线</strong></li>
+      <li style="padding:5px 0 5px 22px;position:relative;font-size:14px"><span style="position:absolute;left:4px;top:13px;width:7px;height:7px;border-radius:50%;background:var(--teal-600)"></span><b>内容同步机制</b>：「新员工必读」板块内容与考试题库均为<b>数据驱动</b>（结构化文件 `onboarding-modules.json` + `quiz-bank.json`，后台「培训内容管理」可在线编辑）；你后续更新资料库时，同步更新这两个数据源即可——板块内容随资料扩充、题库随资料更新而丰富，考试始终从题库<b>随机抽 20 题</b></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="num">6</span>实施路线图（分 4 期）</h2>
+    <div class="phase p1">
+      <div class="ph-num">1</div>
+      <div class="ph-body">
+        <div class="ph-title">3 天学习闭环 <span>现在 ~ 2 周</span></div>
+        <div class="ph-desc">「新员工必读」4 板块（数据驱动，可在线维护）+ 6 款产品卡 + 抖音来客知识库 + 入驻/备案流程 + 异议话术 + 知识盲区收集。先把自学闭环跑通。</div>
+      </div>
+    </div>
+    <div class="phase p2">
+      <div class="ph-num">2</div>
+      <div class="ph-body">
+        <div class="ph-title">考核与红线预警 <span>第 3 ~ 4 周</span></div>
+        <div class="ph-desc">后台<b>新建员工账号</b>（录入入职日期/分配岗位）+ <b>账号管理页随时指定开启考试</b>（须学完必读板块才对该员工显示入口）；20 题随机测验（均衡抽题 / 20 分钟限时 / 断点续答 / 考后显示答案+分数 / <b>账号详情页</b>看分数与逐题详情 + 后台错题分布）+ 实过程量看板（12 家/1 家进度）+ 淘汰红线自动告警。让"留或走"有据可依、线上留痕。</div>
+      </div>
+    </div>
+    <div class="phase p3">
+      <div class="ph-num">3</div>
+      <div class="ph-body">
+        <div class="ph-title">过程管理 + 实操辅助 <span>第 5 ~ 6 周</span></div>
+        <div class="ph-desc">每日登记表汇总/导出 Excel + 通过率/淘汰率报表 + 多轮追问 + 语音输入（跑店路上直接问）。</div>
+      </div>
+    </div>
+    <div class="phase p4">
+      <div class="ph-num">4</div>
+      <div class="ph-body">
+        <div class="ph-title">持续深化 <span>长期</span></div>
+        <div class="ph-desc">题库与话术库沉淀 + 知识底座分类重构 + 淘汰标准持续校准。</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="teal"><span class="num">7</span>预期收益</h2>
+    <div class="benefit">
+      <div class="b"><b>选人精准</b>7 天内完成留/走决策，不合格早期淘汰</div>
+      <div class="b warn"><b>成本可控</b>降低不合格人员的长期用工与培训投入</div>
+      <div class="b"><b>拓店提速</b>3 天学完即可上店，4 天内跑通 1 家</div>
+      <div class="b"><b>老人减负</b>产品/平台/入驻知识自助查询，师傅只带实操</div>
+      <div class="b"><b>风险可控</b>红线早预警，虚假拜访/飞单等行为线上留痕</div>
+      <div class="b warn"><b>口径统一</b>所有新人学同一套资料，对外讲同一套话</div>
+    </div>
+  </section>
+
+  <footer>框架先行 · 确认后按 <b>Phase 1</b> 出执行细则 + 落地代码</footer>
+</div>
+</body>
+</html>

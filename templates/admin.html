@@ -116,6 +116,7 @@
   <div class="tabs">
     <button class="tab on" data-p="overview">数据概览</button>
     <button class="tab" data-p="users">用户管理</button>
+    <button class="tab" data-p="quiz">考试管理</button>
     <button class="tab" data-p="feedback">反馈管理</button>
     <button class="tab" data-p="kb">知识库</button>
     <button class="tab" data-p="settings">公告与设置</button>
@@ -144,17 +145,51 @@
     <div class="search">
       <input type="text" id="searchInput" placeholder="搜索手机号或姓名" />
       <button class="btn sm" onclick="loadUsers(1)">搜索</button>
+      <button class="btn sm ghost" style="margin-left:auto" onclick="toggleNewUser()">＋ 新建员工账号</button>
+    </div>
+    <div class="box" id="newUserBox" style="display:none">
+      <h3>新建员工账号（总部代建）</h3>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <input type="text" id="nuPhone" placeholder="手机号（11 位）" style="flex:1;min-width:160px" />
+        <input type="text" id="nuName" placeholder="姓名（选填）" style="flex:1;min-width:140px" />
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">
+        <input type="text" id="nuPwd" placeholder="初始密码（至少 6 位）" style="flex:1;min-width:160px" />
+        <input type="text" id="nuPos" placeholder="岗位（如：拓店）" style="flex:1;min-width:140px" />
+        <input type="text" id="nuHire" placeholder="入职日期 YYYY-MM-DD（选填）" style="flex:1;min-width:180px" />
+      </div>
+      <button class="btn" style="margin-top:12px" onclick="createUser()">创建账号</button>
+      <div class="hint">创建后员工用该手机号 + 初始密码登录；入职日期与岗位用于培训跟踪。</div>
     </div>
     <div class="box" style="padding:6px 6px">
       <table>
         <thead><tr>
-          <th>手机号</th><th>姓名</th><th>角色</th>
+          <th>手机号</th><th>姓名</th><th>岗位</th><th>角色</th>
           <th class="col-hide">注册时间</th><th class="col-hide">最近活跃</th>
           <th>提问数</th><th>操作</th>
         </tr></thead>
         <tbody id="userRows"></tbody>
       </table>
       <div id="userEmpty" class="hint" style="padding:14px;text-align:center;display:none">暂无用户</div>
+    </div>
+  </section>
+
+  <!-- 考试管理 -->
+  <section class="panel" id="p-quiz">
+    <div class="box">
+      <h3>📝 考试成绩一览</h3>
+      <div class="hint" id="quizSummary">加载中…</div>
+      <table style="margin-top:10px">
+        <thead><tr>
+          <th>手机号</th><th>姓名</th><th>得分</th><th>错题数</th><th>提交时间</th><th>操作</th>
+        </tr></thead>
+        <tbody id="quizRows"></tbody>
+      </table>
+      <div id="quizEmpty" class="hint" style="padding:14px;text-align:center;display:none">暂无考试记录</div>
+    </div>
+    <div class="box">
+      <h3>⚠️ 易错知识点 Top（错题分布）</h3>
+      <div id="weakArea"><div class="hint">加载中…</div></div>
     </div>
   </section>
 
@@ -245,6 +280,7 @@ document.querySelectorAll('.tab').forEach(b=>{
     if(b.dataset.p==='users') loadUsers(1);
     if(b.dataset.p==='feedback') loadFeedback(1);
     if(b.dataset.p==='kb') loadKbFiles();
+    if(b.dataset.p==='quiz') loadQuizResults();
   };
 });
 
@@ -289,11 +325,15 @@ async function loadUsers(page){
     const tr=document.createElement('tr');
     const reg=(u.created_at||'').replace('T',' ').slice(0,16);
     const act=(u.last_active||'').replace('T',' ').slice(0,16);
-    tr.innerHTML=`<td>${u.phone}</td><td>${u.name||'-'}</td>`
+    const examAct = u.role==='employee'
+      ? `<a class="act" onclick="openExamAdmin(${u.id},'${u.phone}')">${u.exam_opened?'重开考试':'开启考试'}</a>`
+      : '';
+    tr.innerHTML=`<td>${u.phone}</td><td>${u.name||'-'}</td><td>${u.position||'-'}</td>`
       +`<td><span class="role ${u.role}">${u.role==='admin'?'管理员':'员工'}</span></td>`
       +`<td class="col-hide">${reg}</td><td class="col-hide">${act}</td>`
       +`<td>${u.usage_count}</td>`
       +`<td><a class="act" onclick="openDetail(${u.id})">详情</a>`
+      + examAct
       +`<a class="act" onclick="resetPwd(${u.id})">重置密码</a>`
       +`<a class="act" onclick="toggleRole(${u.id},'${u.role}')">${u.role==='admin'?'降为员工':'设为管理员'}</a>`
       +`<a class="act del" onclick="deleteUser(${u.id},'${u.phone}','${u.name||''}')">删除</a></td>`;
@@ -307,8 +347,32 @@ async function openDetail(uid){
   const u=d.user;
   $('dTitle').textContent='员工详情 · '+u.phone;
   let html=`<div class="qitem"><div class="qt">基础信息</div><div class="qa">`
-    +`手机号：${u.phone}\n姓名：${u.name||'-'}\n角色：${u.role==='admin'?'管理员':'员工'}`
+    +`手机号：${u.phone}\n姓名：${u.name||'-'}\n岗位：${u.position||'-'}`
+    +`\n角色：${u.role==='admin'?'管理员':'员工'}\n入职日期：${u.hire_date||'-'}`
     +`\n注册：${(u.created_at||'').replace('T',' ').slice(0,16)}\n最近登录：${(u.last_login||'').replace('T',' ').slice(0,16)}</div></div>`;
+  // 必读学习进度
+  if(d.learning){
+    const lm=d.learning.modules;
+    const doneC=lm.filter(m=>m.completed).length;
+    let mods=lm.map(m=>`${m.completed?'✅':'⬜'} ${escapeHtml(m.title)}`).join('\n');
+    html+=`<div class="qitem"><div class="qt">新员工必读 · 学习进度（${doneC}/${lm.length}）</div>`
+      +`<div class="qa">${mods}</div></div>`;
+  }
+  // 考试
+  if(d.exam){
+    if(d.exam.status==='submitted'){
+      html+=`<div class="qitem"><div class="qt">入职测验 · 得分 ${d.exam.score} / ${d.exam.total}</div>`
+        +`<div class="qa">提交时间：${(d.exam.submitted_at||'').replace('T',' ').slice(0,16)}</div></div>`;
+      d.exam.details.forEach((q,i)=>{
+        const ok=(q.selected===q.answer);
+        html+=`<div class="qitem"><div class="qt">${i+1}. ${escapeHtml(q.stem)}</div>`
+          +`<div class="qa">${q.options.map(o=>o.key+'. '+escapeHtml(o.text)+(o.key===q.answer?'（正确）':'')+(o.key===q.selected&&!ok?'（你的答案）':'')).join('\n')}</div>`
+          +`<div class="qm" style="color:${ok?'var(--ok)':'#cf2d2d'}">${ok?'回答正确':'你的答案：'+(q.selected||'未作答')+'，正确答案：'+q.answer}</div></div>`;
+      });
+    }else if(d.exam.status==='in_progress'){
+      html+=`<div class="qitem"><div class="qt">入职测验</div><div class="qa">进行中（未交卷）</div></div>`;
+    }
+  }
   if(d.usage.length){
     html+='<div class="qt" style="font-weight:600;margin:6px 0">提问记录（最近 '+d.usage.length+' 条）</div>';
     d.usage.forEach(x=>{
@@ -458,6 +522,67 @@ async function reloadKb(){
 async function logout(){
   await api('/api/logout',{method:'POST'});
   location.href='/';
+}
+
+/* ---- 新建员工账号（总部代建） ---- */
+function toggleNewUser(){
+  const box=$('newUserBox');
+  box.style.display = box.style.display==='none' ? 'block' : 'none';
+}
+async function createUser(){
+  const phone=$('nuPhone').value.trim();
+  const name=$('nuName').value.trim();
+  const pwd=$('nuPwd').value;
+  const pos=$('nuPos').value.trim();
+  const hire=$('nuHire').value.trim();
+  if(!/^1[3-9]\d{9}$/.test(phone)){toast('请输入正确的手机号');return;}
+  if(pwd.length<6){toast('初始密码至少6位');return;}
+  const d=await api('/api/admin/users',{method:'POST',
+    body:JSON.stringify({phone,password:pwd,name:name||null,position:pos||null,hire_date:hire||null})});
+  if(d.ok){ toast('已创建账号 '+phone); $('newUserBox').style.display='none';
+    $('nuPhone').value='';$('nuName').value='';$('nuPwd').value='';$('nuPos').value='';$('nuHire').value='';
+    loadUsers(1); }
+  else toast('失败：'+(d.error||''));
+}
+
+/* ---- 总部为员工开启/重开考试 ---- */
+async function openExamAdmin(uid,phone){
+  if(!confirm('确认为 '+phone+' 开启入职测验？\n（开启后该员工学完必读即可参加考试；若已考过将清空原成绩重考）')) return;
+  const d=await api('/api/admin/exam/open',{method:'POST',body:JSON.stringify({user_id:uid})});
+  toast(d.ok?'已开启考试':'失败：'+(d.error||''));
+  if(d.ok) loadUsers(1);
+}
+
+/* ---- 考试管理：成绩 + 易错分布 ---- */
+async function loadQuizResults(){
+  const d=await api('/api/admin/quiz/results');
+  if(d.error){toast(d.error);return;}
+  // 汇总
+  const n=d.count||0;
+  const avg = n? Math.round(d.items.reduce((s,x)=>s+x.score,0)/n) : 0;
+  $('quizSummary').innerHTML = `共 <b>${n}</b> 人完成考试，平均分 <b>${avg}</b> 分（满分 100，不设通过线）。`;
+  const tb=$('quizRows'); tb.innerHTML='';
+  if(!n){ $('quizEmpty').style.display='block'; }
+  else{
+    $('quizEmpty').style.display='none';
+    d.items.forEach(x=>{
+      const tr=document.createElement('tr');
+      const t=(x.submitted_at||'').replace('T',' ').slice(0,16);
+      tr.innerHTML=`<td>${x.phone}</td><td>${x.name||'-'}</td>`
+        +`<td><b>${x.score}</b> / ${x.total}</td><td>${x.wrong_count}</td><td>${t}</td>`
+        +`<td><a class="act" onclick="openDetail(${x.user_id})">查看答卷</a></td>`;
+      tb.appendChild(tr);
+    });
+  }
+  // 易错
+  const wa=$('weakArea');
+  if(!d.weak||!d.weak.length){ wa.innerHTML='<div class="hint">暂无错题数据</div>'; }
+  else{
+    wa.innerHTML=d.weak.map(w=>{
+      return `<div class="qitem"><div class="qt">${escapeHtml(w.stem)}</div>`
+        +`<div class="qa">知识点：${escapeHtml(w.topic)} · 错 ${w.wrong_count} 人次 · 正确答案：${w.answer}</div></div>`;
+    }).join('');
+  }
 }
 
 loadStats();

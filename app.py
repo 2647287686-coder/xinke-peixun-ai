@@ -20,7 +20,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import requests
 from bs4 import BeautifulSoup
 
-from db import db, make_db_uri, User, UsageLog, Setting, ResetRequest, Feedback
+from db import db, make_db_uri, User, UsageLog, Setting, ResetRequest, Feedback, LearningProgress, QuizAttempt
+from sqlalchemy import text
 
 try:
     import jieba
@@ -51,6 +52,8 @@ _load_local_env()
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 KB_DIR = os.path.join(BASE, "kb", "text")
+ONB_DIR = os.path.join(BASE, "kb", "onboarding")
+QUIZ_BANK_FILE = os.path.join(BASE, "kb", "quiz", "quiz-bank.json")
 STATIC_DIR = os.path.join(BASE, "static")
 
 # ---- 配置（可通过环境变量覆盖）----
@@ -119,6 +122,82 @@ def retrieve(query, k=TOP_K, max_per_source=2):
         out.append({"source": c["source"], "text": c["text"], "score": float(scores[i])})
         if len(out) >= k:
             break
+    return out
+
+# ---- 新员工必读板块 + 考试题库加载 ----
+_onb_modules = []
+_quiz_bank = []
+
+def load_onboarding():
+    """加载「新员工必读」板块结构化内容（kb/onboarding/onboarding-modules.json）。"""
+    global _onb_modules
+    try:
+        if os.path.exists(ONB_DIR):
+            with open(os.path.join(ONB_DIR, "onboarding-modules.json"), encoding="utf-8") as fh:
+                data = json.load(fh)
+            _onb_modules = data.get("modules", [])
+            print(f"[ONB] 已加载 {len(_onb_modules)} 个必读板块")
+        else:
+            _onb_modules = []
+    except Exception as e:
+        print(f"[ONB] 加载失败: {e}")
+        _onb_modules = []
+
+def load_quiz():
+    """加载考试题库（kb/quiz/quiz-bank.json）。"""
+    global _quiz_bank
+    try:
+        if os.path.exists(QUIZ_BANK_FILE):
+            with open(QUIZ_BANK_FILE, encoding="utf-8") as fh:
+                data = json.load(fh)
+            _quiz_bank = data.get("questions", [])
+            print(f"[QUIZ] 已加载 {len(_quiz_bank)} 道题")
+        else:
+            _quiz_bank = []
+    except Exception as e:
+        print(f"[QUIZ] 加载失败: {e}")
+        _quiz_bank = []
+
+# 各主题抽题配额（合计 20 题），确保多角度均衡
+QUIZ_QUOTA = {"产品知识": 5, "抖音来客平台": 3, "门店准入": 3,
+               "入驻流程": 3, "品牌授权": 2, "入驻审核": 4}
+QUIZ_DURATION = 20  # 分钟
+QUIZ_PER_SCORE = 5  # 每题分
+
+def draw_questions(n=20):
+    """从题库按主题均衡抽取 n 道题，返回题 id 列表（随机打乱顺序）。"""
+    import random
+    by_topic = {}
+    for q in _quiz_bank:
+        by_topic.setdefault(q.get("topic", ""), []).append(q)
+    for t in by_topic:
+        random.shuffle(by_topic[t])
+    chosen = []
+    for t, qn in QUIZ_QUOTA.items():
+        pool = by_topic.get(t, [])
+        chosen.extend([q["id"] for q in pool[:qn]])
+    # 题库扩充后若配额不足，用剩余题补足
+    if len(chosen) < n:
+        picked = set(chosen)
+        remain = [q["id"] for t in by_topic for q in by_topic[t] if q["id"] not in picked]
+        random.shuffle(remain)
+        chosen.extend(remain[: n - len(chosen)])
+    random.shuffle(chosen)
+    return chosen[:n]
+
+def quiz_question_by_id(qid):
+    for q in _quiz_bank:
+        if q["id"] == qid:
+            return q
+    return None
+
+def quiz_to_front(q, with_answer=False):
+    """转换为前端结构；with_answer=True 时附带正确答案（考后显示）。"""
+    opts = q.get("options", {})
+    options = [{"key": k, "text": v} for k, v in opts.items()]
+    out = {"id": q["id"], "topic": q.get("topic", ""), "stem": q["stem"], "options": options}
+    if with_answer:
+        out["answer"] = q.get("answer", "")
     return out
 
 # ---- 时效性判断 ----
@@ -309,6 +388,8 @@ def sse(event, data):
 # ============ 账号体系 / 后台 ============
 def public_user(u):
     return {"id": u.id, "phone": u.phone, "name": u.name, "role": u.role,
+            "hire_date": u.hire_date.isoformat() if u.hire_date else None,
+            "position": u.position or "", "exam_opened": bool(u.exam_opened),
             "created_at": u.created_at.isoformat() if u.created_at else None,
             "last_login": u.last_login.isoformat() if u.last_login else None}
 
@@ -371,14 +452,48 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
 }
 db.init_app(app)
 
-with app.app_context():
+def _column_exists(table, column):
+    """判断某表是否存在某列（兼容 SQLite / Postgres）。"""
+    try:
+        if db.engine.dialect.name == "sqlite":
+            rows = db.session.execute(text(f"PRAGMA table_info({table})")).fetchall()
+            return any(r[1] == column for r in rows)
+        rows = db.session.execute(
+            text("SELECT column_name FROM information_schema.columns "
+                 "WHERE table_name=:t AND column_name=:c"),
+            {"t": table, "c": column}).fetchall()
+        return len(rows) > 0
+    except Exception:
+        return False
+
+def migrate_db():
+    """建表 + 为已存在的表补加新列（create_all 不会 alter 已有表）。"""
     db.create_all()
+    alters = [
+        ("users", "hire_date", "DATE"),
+        ("users", "position", "VARCHAR(50)"),
+        ("users", "exam_opened", "BOOLEAN DEFAULT FALSE"),
+    ]
+    for table, col, sql in alters:
+        if not _column_exists(table, col):
+            try:
+                db.session.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {sql}"))
+                db.session.commit()
+                print(f"[MIGRATE] 已为 {table} 增加列 {col}")
+            except Exception as e:
+                db.session.rollback()
+                print(f"[MIGRATE] 增加列 {table}.{col} 失败: {e}")
+
+with app.app_context():
+    migrate_db()
     init_settings()
     seed_admin()
 
 # 启动时预加载知识库（gunicorn 多 worker 下每个进程各自加载）
 try:
     load_kb()
+    load_onboarding()
+    load_quiz()
 except Exception as e:
     print(f"[KB] 启动加载失败（将在首次提问时重试）: {e}")
 
@@ -561,6 +676,187 @@ def ask():
     return Response(gen(), mimetype="text/event-stream")
 
 
+# ============ 新员工必读 + 考试（员工端，需登录）============
+def _require_uid():
+    uid = session.get("user_id")
+    return uid
+
+def _onb_status(uid):
+    progresses = {lp.module_id: lp for lp in LearningProgress.query.filter_by(user_id=uid).all()}
+    modules = []
+    all_done = True
+    for m in _onb_modules:
+        lp = progresses.get(m["id"])
+        done = bool(lp and lp.completed)
+        if not done:
+            all_done = False
+        modules.append({"id": m["id"], "title": m["title"], "completed": done})
+    u = db.session.get(User, uid)
+    exam_opened = bool(u and u.exam_opened)
+    exam_available = exam_opened and all_done
+    return modules, all_done, exam_opened, exam_available
+
+@app.route("/api/onboarding/modules")
+def onboarding_modules():
+    uid = _require_uid()
+    if not uid:
+        return jsonify({"error": "unauthorized"}), 401
+    out = [{"id": m["id"], "title": m["title"], "summary": m.get("summary", ""),
+            "content": m.get("content", [])} for m in _onb_modules]
+    return jsonify({"modules": out})
+
+@app.route("/api/onboarding/status")
+def onboarding_status():
+    uid = _require_uid()
+    if not uid:
+        return jsonify({"error": "unauthorized"}), 401
+    modules, all_done, exam_opened, exam_available = _onb_status(uid)
+    return jsonify({"modules": modules, "all_completed": all_done,
+                    "exam_opened": exam_opened, "exam_available": exam_available})
+
+@app.route("/api/onboarding/mark", methods=["POST"])
+def onboarding_mark():
+    uid = _require_uid()
+    if not uid:
+        return jsonify({"error": "unauthorized"}), 401
+    data = request.get_json(silent=True) or {}
+    mid = (data.get("module_id") or "").strip()
+    completed = bool(data.get("completed", True))
+    if not mid or not any(m["id"] == mid for m in _onb_modules):
+        return jsonify({"error": "无效模块"}), 400
+    lp = LearningProgress.query.filter_by(user_id=uid, module_id=mid).first()
+    if not lp:
+        lp = LearningProgress(user_id=uid, module_id=mid)
+        db.session.add(lp)
+    lp.completed = completed
+    lp.completed_at = datetime.utcnow() if completed else None
+    db.session.commit()
+    return jsonify({"ok": True, "completed": completed})
+
+
+def _score_attempt(attempt):
+    qids = json.loads(attempt.question_ids)
+    answers = json.loads(attempt.answers)
+    score = 0
+    for qid in qids:
+        q = quiz_question_by_id(qid)
+        if not q:
+            continue
+        if answers.get(str(qid), "") == q.get("answer", ""):
+            score += QUIZ_PER_SCORE
+    attempt.score = score
+    attempt.total = len(qids) * QUIZ_PER_SCORE
+    attempt.status = "submitted"
+
+def _auto_settle(attempt):
+    if attempt and attempt.status == "in_progress" and attempt.deadline \
+            and datetime.utcnow() >= attempt.deadline:
+        _score_attempt(attempt)
+        db.session.commit()
+    return attempt
+
+@app.route("/api/exam/state")
+def exam_state():
+    uid = _require_uid()
+    if not uid:
+        return jsonify({"error": "unauthorized"}), 401
+    attempt = (QuizAttempt.query.filter_by(user_id=uid)
+               .order_by(QuizAttempt.created_at.desc()).first())
+    if not attempt:
+        return jsonify({"status": "none"})
+    _auto_settle(attempt)
+    qids = json.loads(attempt.question_ids)
+    answers = json.loads(attempt.answers)
+    if attempt.status == "in_progress":
+        questions = [quiz_to_front(q, False) for qid in qids
+                     if (q := quiz_question_by_id(qid))]
+        remaining = int((attempt.deadline - datetime.utcnow()).total_seconds()) if attempt.deadline else 0
+        return jsonify({"status": "in_progress", "deadline": attempt.deadline.isoformat(),
+                        "remaining": max(0, remaining), "questions": questions, "answers": answers})
+    details = []
+    for qid in qids:
+        q = quiz_question_by_id(qid)
+        if q:
+            d = quiz_to_front(q, True)
+            d["selected"] = answers.get(str(qid), "")
+            details.append(d)
+    return jsonify({"status": "submitted", "score": attempt.score, "total": attempt.total,
+                    "submitted_at": attempt.created_at.isoformat() if attempt.created_at else None,
+                    "details": details})
+
+@app.route("/api/exam/start", methods=["POST"])
+def exam_start():
+    uid = _require_uid()
+    if not uid:
+        return jsonify({"error": "unauthorized"}), 401
+    modules, all_done, exam_opened, exam_available = _onb_status(uid)
+    if not exam_available:
+        return jsonify({"error": "考试尚未开启，或必读板块未全部学完"}), 400
+    existing = (QuizAttempt.query.filter_by(user_id=uid)
+                .order_by(QuizAttempt.created_at.desc()).first())
+    if existing and existing.status == "in_progress":
+        return jsonify({"error": "已有进行中的考试，请继续作答"}), 400
+    if existing and existing.status == "submitted":
+        return jsonify({"error": "已完成考试，可在结果页查看"}), 400
+    now = datetime.utcnow()
+    qids = draw_questions(20)
+    attempt = QuizAttempt(user_id=uid, question_ids=json.dumps(qids),
+                          answers=json.dumps({}), started_at=now,
+                          deadline=now + timedelta(minutes=QUIZ_DURATION),
+                          duration_min=QUIZ_DURATION, status="in_progress")
+    db.session.add(attempt)
+    db.session.commit()
+    questions = [quiz_to_front(q, False) for qid in qids
+                 if (q := quiz_question_by_id(qid))]
+    return jsonify({"status": "in_progress", "deadline": attempt.deadline.isoformat(),
+                    "remaining": QUIZ_DURATION * 60, "questions": questions, "answers": {}})
+
+@app.route("/api/exam/answer", methods=["POST"])
+def exam_answer():
+    uid = _require_uid()
+    if not uid:
+        return jsonify({"error": "unauthorized"}), 401
+    data = request.get_json(silent=True) or {}
+    qid = data.get("question_id")
+    sel = data.get("selected", "")
+    attempt = (QuizAttempt.query.filter_by(user_id=uid, status="in_progress")
+               .order_by(QuizAttempt.created_at.desc()).first())
+    if not attempt:
+        return jsonify({"error": "没有进行中的考试"}), 400
+    if attempt.deadline and datetime.utcnow() >= attempt.deadline:
+        _score_attempt(attempt)
+        db.session.commit()
+        return jsonify({"error": "考试时间已结束，已自动结算", "settled": True}), 400
+    answers = json.loads(attempt.answers)
+    answers[str(qid)] = sel
+    attempt.answers = json.dumps(answers)
+    db.session.commit()
+    return jsonify({"ok": True})
+
+@app.route("/api/exam/submit", methods=["POST"])
+def exam_submit():
+    uid = _require_uid()
+    if not uid:
+        return jsonify({"error": "unauthorized"}), 401
+    attempt = (QuizAttempt.query.filter_by(user_id=uid, status="in_progress")
+               .order_by(QuizAttempt.created_at.desc()).first())
+    if not attempt:
+        return jsonify({"error": "没有进行中的考试"}), 400
+    _score_attempt(attempt)
+    db.session.commit()
+    qids = json.loads(attempt.question_ids)
+    answers = json.loads(attempt.answers)
+    details = []
+    for qid in qids:
+        q = quiz_question_by_id(qid)
+        if q:
+            d = quiz_to_front(q, True)
+            d["selected"] = answers.get(str(qid), "")
+            details.append(d)
+    return jsonify({"status": "submitted", "score": attempt.score, "total": attempt.total,
+                    "details": details})
+
+
 # ============ 总部后台 API（均需 admin 角色）============
 @app.route("/api/admin/stats")
 @admin_required
@@ -628,20 +924,9 @@ def admin_users():
                 .order_by(UsageLog.created_at.desc()).first())
         items.append({**public_user(u), "usage_count": cnt,
                       "last_question": last.question if last else None,
-                      "last_active": last.created_at.isoformat() if last else None})
+                      "last_active": last.created_at.isoformat() if last else None,
+                      "exam_opened": bool(u.exam_opened), "position": u.position or ""})
     return jsonify({"total": total, "page": page, "items": items})
-
-
-@app.route("/api/admin/users/<int:uid>")
-@admin_required
-def admin_user_detail(uid):
-    u = User.query.get_or_404(uid)
-    logs = (UsageLog.query.filter_by(user_id=uid)
-            .order_by(UsageLog.created_at.desc()).limit(100).all())
-    return jsonify({"user": public_user(u),
-                    "usage": [{"question": l.question, "preview": l.answer_preview,
-                               "kb": l.kb_count, "web": l.web_count,
-                               "at": l.created_at.isoformat()} for l in logs]})
 
 
 @app.route("/api/admin/users/<int:uid>/role", methods=["POST"])
@@ -695,6 +980,134 @@ def admin_reset():
         {ResetRequest.status: "done"})
     db.session.commit()
     return jsonify({"ok": True})
+
+
+# ---- 总部代建员工账号 ----
+@app.route("/api/admin/users", methods=["POST"])
+@admin_required
+def admin_create_user():
+    data = request.get_json(silent=True) or {}
+    phone = (data.get("phone") or "").strip()
+    pwd = (data.get("password") or "")
+    name = (data.get("name") or "").strip() or None
+    position = (data.get("position") or "").strip() or None
+    hire_date = data.get("hire_date") or None
+    if not re.match(r"^1[3-9]\d{9}$", phone):
+        return jsonify({"error": "手机号格式不正确（需 11 位大陆手机号）"}), 400
+    if len(pwd) < 6:
+        return jsonify({"error": "初始密码至少 6 位"}), 400
+    if User.query.filter_by(phone=phone).first():
+        return jsonify({"error": "该手机号已存在"}), 400
+    hd = None
+    if hire_date:
+        try:
+            hd = datetime.strptime(hire_date, "%Y-%m-%d").date()
+        except Exception:
+            return jsonify({"error": "入职日期格式应为 YYYY-MM-DD"}), 400
+    u = User(phone=phone, password_hash=generate_password_hash(pwd), name=name,
+             role="employee", position=position, hire_date=hd, exam_opened=False)
+    db.session.add(u)
+    db.session.commit()
+    return jsonify({"ok": True, "user": public_user(u)})
+
+
+# ---- 总部为某员工开启考试 ----
+@app.route("/api/admin/exam/open", methods=["POST"])
+@admin_required
+def admin_exam_open():
+    data = request.get_json(silent=True) or {}
+    uid = data.get("user_id")
+    u = db.session.get(User, uid)
+    if not u:
+        return jsonify({"error": "员工不存在"}), 404
+    # 清理该员工已有的考试尝试，使其可重新参加（若之前考过）
+    QuizAttempt.query.filter_by(user_id=u.id).delete()
+    db.session.commit()
+    u.exam_opened = True
+    db.session.commit()
+    return jsonify({"ok": True, "exam_opened": True})
+
+
+# ---- 总部后台：考试结果总览 + 易错题统计 ----
+@app.route("/api/admin/quiz/results")
+@admin_required
+def admin_quiz_results():
+    attempts = (QuizAttempt.query.filter_by(status="submitted")
+                .order_by(QuizAttempt.created_at.desc()).all())
+    items = []
+    # 易错题统计
+    wrong_counter = {}
+    for a in attempts:
+        u = db.session.get(User, a.user_id)
+        qids = json.loads(a.question_ids)
+        answers = json.loads(a.answers)
+        wrong_ids = []
+        for qid in qids:
+            q = quiz_question_by_id(qid)
+            if not q:
+                continue
+            if answers.get(str(qid), "") != q.get("answer", ""):
+                wrong_ids.append(qid)
+                wrong_counter[qid] = wrong_counter.get(qid, 0) + 1
+        items.append({
+            "attempt_id": a.id, "user_id": a.user_id,
+            "phone": u.phone if u else "-", "name": u.name if u else "-",
+            "score": a.score, "total": a.total,
+            "submitted_at": a.created_at.isoformat() if a.created_at else None,
+            "wrong_count": len(wrong_ids),
+        })
+    ranked = sorted(wrong_counter.items(), key=lambda kv: kv[1], reverse=True)
+    weak = []
+    for qid, cnt in ranked[:10]:
+        q = quiz_question_by_id(qid)
+        if q:
+            weak.append({"id": qid, "stem": q["stem"], "topic": q.get("topic", ""),
+                         "wrong_count": cnt, "answer": q.get("answer", "")})
+    return jsonify({"items": items, "count": len(items), "weak": weak})
+
+
+# ---- 后台员工详情：补充必读进度 + 考试 ----
+def _detail_learning(uid):
+    progresses = {lp.module_id: lp for lp in LearningProgress.query.filter_by(user_id=uid).all()}
+    modules = [{"id": m["id"], "title": m["title"], "completed": bool(lp and lp.completed)}
+               for m in _onb_modules
+               for lp in [progresses.get(m["id"])]]
+    all_done = all(m["completed"] for m in modules)
+    return modules, all_done
+
+def _detail_exam(uid):
+    attempt = (QuizAttempt.query.filter_by(user_id=uid)
+               .order_by(QuizAttempt.created_at.desc()).first())
+    if not attempt:
+        return None
+    qids = json.loads(attempt.question_ids)
+    answers = json.loads(attempt.answers)
+    details = []
+    for qid in qids:
+        q = quiz_question_by_id(qid)
+        if q:
+            d = quiz_to_front(q, True)
+            d["selected"] = answers.get(str(qid), "")
+            details.append(d)
+    return {"status": attempt.status, "score": attempt.score, "total": attempt.total,
+            "submitted_at": attempt.created_at.isoformat() if attempt.created_at else None,
+            "details": details}
+
+
+@app.route("/api/admin/users/<int:uid>")
+@admin_required
+def admin_user_detail(uid):
+    u = User.query.get_or_404(uid)
+    logs = (UsageLog.query.filter_by(user_id=uid)
+            .order_by(UsageLog.created_at.desc()).limit(100).all())
+    modules, all_done = _detail_learning(uid)
+    exam = _detail_exam(uid)
+    return jsonify({"user": public_user(u),
+                    "learning": {"modules": modules, "all_completed": all_done},
+                    "exam": exam,
+                    "usage": [{"question": l.question, "preview": l.answer_preview,
+                               "kb": l.kb_count, "web": l.web_count,
+                               "at": l.created_at.isoformat()} for l in logs]})
 
 
 # ---- 员工端：答案反馈 👍/👎 ----
@@ -833,5 +1246,7 @@ def admin_kb_reload():
 
 if __name__ == "__main__":
     load_kb()
+    load_onboarding()
+    load_quiz()
     port = int(os.environ.get("PORT", "8000"))
     app.run(host="0.0.0.0", port=port, threaded=True)

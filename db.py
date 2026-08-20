@@ -29,6 +29,10 @@ class User(db.Model):
     password_hash = db.Column(db.String(200), nullable=False)
     name = db.Column(db.String(50), nullable=True)
     role = db.Column(db.String(20), default="employee")  # admin | employee
+    # 拓店试岗新增字段
+    hire_date = db.Column(db.Date, nullable=True)        # 入职日期（总部代建时录入）
+    position = db.Column(db.String(50), nullable=True)   # 岗位（如：拓店）
+    exam_opened = db.Column(db.Boolean, default=False)   # 总部是否已为该员工开启考试
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_login = db.Column(db.DateTime, nullable=True)
 
@@ -65,4 +69,31 @@ class Feedback(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), index=True)
     rating = db.Column(db.String(10), nullable=False)  # up | down
     comment = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+# ---- 新员工必读：各板块学习进度 ----
+class LearningProgress(db.Model):
+    __tablename__ = "learning_progress"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), index=True)
+    module_id = db.Column(db.String(40), nullable=False)
+    completed = db.Column(db.Boolean, default=False)
+    completed_at = db.Column(db.DateTime, nullable=True)
+    __table_args__ = (db.UniqueConstraint("user_id", "module_id", name="uq_user_module"),)
+
+
+# ---- 考试：一次测验尝试 ----
+class QuizAttempt(db.Model):
+    __tablename__ = "quiz_attempts"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), index=True)
+    question_ids = db.Column(db.Text, nullable=False, default="[]")  # JSON 抽中的题 id 列表
+    answers = db.Column(db.Text, default="{}")                       # JSON {qid: 选项字母或 ""}
+    started_at = db.Column(db.DateTime, nullable=True)
+    deadline = db.Column(db.DateTime, nullable=True)
+    duration_min = db.Column(db.Integer, default=20)
+    status = db.Column(db.String(20), default="in_progress")         # in_progress | submitted
+    score = db.Column(db.Integer, default=0)
+    total = db.Column(db.Integer, default=0)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

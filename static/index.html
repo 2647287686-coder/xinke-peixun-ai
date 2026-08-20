@@ -151,6 +151,58 @@
   .amsg{color:var(--brand-d);font-size:13px;text-align:center;min-height:18px;margin-top:8px}
   #appView{display:none;flex:1;flex-direction:column;min-height:0}
   #appView.show{display:flex}
+
+  /* 新员工必读 + 考试 覆盖层 */
+  .overlay{position:fixed;inset:0;background:var(--bg);z-index:40;display:none;flex-direction:column}
+  .overlay.on{display:flex}
+  .ov-head{background:linear-gradient(135deg,var(--brand),var(--brand-d));color:#fff;
+    padding:14px 16px;display:flex;align-items:center;gap:10px;flex:0 0 auto}
+  .ov-head h2{font-size:16px;margin:0;flex:1}
+  .ov-head .obtn{background:rgba(255,255,255,.2);border:none;color:#fff;height:34px;
+    padding:0 14px;border-radius:10px;font-size:14px}
+  .ov-body{flex:1;overflow-y:auto;padding:14px 12px 90px}
+  .ov-progress{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+  .ov-progress .bar{flex:1;height:10px;border-radius:6px;background:#e6e7ea;overflow:hidden}
+  .ov-progress .bar > i{display:block;height:100%;background:var(--ok);width:0;transition:width .3s}
+  .ov-progress .pt{font-size:13px;color:var(--sub);white-space:nowrap}
+  .onb-card{background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:12px;overflow:hidden}
+  .onb-card .oc-head{display:flex;align-items:center;gap:10px;padding:13px 14px;cursor:pointer}
+  .onb-card .oc-title{font-size:15px;font-weight:600;flex:1}
+  .badge{font-size:12px;padding:3px 10px;border-radius:20px;white-space:nowrap}
+  .badge.todo{background:#f0f1f3;color:#6b7280}
+  .badge.done{background:#e8f7ee;color:var(--ok);border:1px solid #b8e6cc}
+  .onb-card .oc-body{padding:0 14px;max-height:0;overflow:hidden;transition:max-height .25s ease}
+  .onb-card.open .oc-body{max-height:1400px;padding-bottom:14px}
+  .onb-card .oc-sum{font-size:13px;color:var(--sub);line-height:1.6;margin:0 0 8px}
+  .onb-card .oc-line{font-size:14px;line-height:1.6;padding:4px 0;border-top:1px dashed var(--line);white-space:pre-wrap;word-break:break-word}
+  .onb-card .oc-foot{padding:10px 14px;border-top:1px solid var(--line)}
+  .onb-btn{width:100%;border:1px solid var(--brand);background:#fff2ef;color:var(--brand-d);
+    border-radius:10px;padding:10px;font-size:14px;font-weight:600}
+  .onb-btn.done{background:#e8f7ee;border-color:#b8e6cc;color:var(--ok)}
+  .exam-entry{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:14px;margin-top:6px;text-align:center}
+  .exam-entry .et{font-size:14px;margin-bottom:10px;color:var(--text);font-weight:600}
+  .exam-entry .hint2{font-size:13px;color:var(--sub);margin-bottom:12px;line-height:1.6}
+  .exam-btn{background:var(--brand);color:#fff;border:none;border-radius:12px;
+    padding:12px 22px;font-size:15px;font-weight:600}
+  .exam-btn:disabled{opacity:.5}
+  .q-timer{font-size:14px;color:#fff;background:rgba(0,0,0,.18);padding:4px 12px;border-radius:20px}
+  .q-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:14px}
+  .q-card .qn{font-size:14px;font-weight:600;margin-bottom:10px;line-height:1.5}
+  .q-opt{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);
+    border-radius:10px;margin-bottom:8px;font-size:14px;cursor:pointer}
+  .q-opt.sel{border-color:var(--brand);background:#fff2ef}
+  .q-opt.correct{border-color:var(--ok);background:#e8f7ee}
+  .q-opt.wrong{border-color:#cf2d2d;background:#fdeaea}
+  .q-opt .mk{width:20px;height:20px;border-radius:50%;border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;font-size:12px;flex:0 0 auto}
+  .q-opt.sel .mk{background:var(--brand);color:#fff;border-color:var(--brand)}
+  .q-result-note{font-size:13px;margin-top:6px}
+  .q-result-note.ok{color:var(--ok)}
+  .q-result-note.no{color:#cf2d2d}
+  .exam-score{text-align:center;padding:18px 0}
+  .exam-score .s{font-size:46px;font-weight:700;color:var(--brand-d)}
+  .exam-score .t{font-size:15px;color:var(--sub)}
 </style>
 </head>
 <body>
@@ -179,6 +231,7 @@
   <header>
     <div class="logo">📖</div>
     <div class="tbox"><h1 id="appTitle">喜客丸AI小助手</h1><p>基于内部资料库 · 联网核验 · 随时提问</p></div>
+    <button id="onbBtn" class="hbtn" onclick="openOnb()">📘 必读</button>
     <button id="adminBtn" class="hbtn" style="display:none" onclick="location.href='/admin'">后台</button>
     <button id="userBtn" class="hbtn" title="退出登录">👤</button>
   </header>
@@ -226,6 +279,32 @@
       <button class="gbtn go" id="genGo">生成</button>
     </div>
   </div>
+</div>
+
+<!-- 新员工必读 -->
+<div class="overlay" id="onbView">
+  <div class="ov-head">
+    <button class="obtn" onclick="closeOnb()">✕</button>
+    <h2>📘 新员工必读</h2>
+  </div>
+  <div class="ov-body">
+    <div class="ov-progress">
+      <div class="bar"><i id="onbBar"></i></div>
+      <div class="pt" id="onbPt">0 / 4</div>
+    </div>
+    <div id="onbList"></div>
+    <div id="onbExam"></div>
+  </div>
+</div>
+
+<!-- 入职考试 -->
+<div class="overlay" id="examView">
+  <div class="ov-head">
+    <button class="obtn" onclick="closeExam()">✕</button>
+    <h2>入职测验</h2>
+    <div class="q-timer" id="examTimer" style="display:none"></div>
+  </div>
+  <div class="ov-body" id="examBody"></div>
 </div>
 
 <div id="toast"></div>
@@ -564,6 +643,200 @@ function bootAuth(){
     }
   }).catch(()=>{ refreshAuthUI(); showAuth(); });
 }
+/* ============ 新员工必读 + 入职考试 ============ */
+function escapeHtml(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+const onbView=document.getElementById('onbView');
+const examView=document.getElementById('examView');
+let onbData={modules:[],status:null,examState:null};
+let examTimer=null;
+
+function openOnb(){ loadOnboarding(); onbView.classList.add('on'); }
+function closeOnb(){ onbView.classList.remove('on'); }
+
+async function loadOnboarding(){
+  try{
+    const [m,s,e]=await Promise.all([
+      fetch('/api/onboarding/modules').then(r=>r.json()),
+      fetch('/api/onboarding/status').then(r=>r.json()),
+      fetch('/api/exam/state').then(r=>r.json()).catch(()=>({status:'none'}))
+    ]);
+    if(m.error||s.error){ toast(m.error||s.error); return; }
+    onbData={modules:m.modules,status:s,examState:e};
+    renderOnb();
+  }catch(err){ toast('加载失败'); }
+}
+
+function renderOnb(){
+  const mods=onbData.modules, st=onbData.status;
+  const list=document.getElementById('onbList'); list.innerHTML='';
+  const doneCount=st.modules.filter(x=>x.completed).length;
+  document.getElementById('onbBar').style.width=(mods.length?doneCount/mods.length*100:0)+'%';
+  document.getElementById('onbPt').textContent=doneCount+' / '+mods.length;
+  mods.forEach(m=>{
+    const prog=st.modules.find(x=>x.id===m.id);
+    const done=prog?prog.completed:false;
+    const card=document.createElement('div'); card.className='onb-card'+(done?' done':'');
+    const contentHtml=(m.content||[]).map(c=>'<div class="oc-line">'+escapeHtml(c)+'</div>').join('');
+    card.innerHTML=
+      '<div class="oc-head"><div class="oc-title">'+escapeHtml(m.title)+'</div>'
+      +'<span class="badge '+(done?'done':'todo')+'">'+(done?'✓ 已学完':'待学习')+'</span></div>'
+      +'<div class="oc-body"><p class="oc-sum">'+escapeHtml(m.summary||'')+'</p>'+contentHtml+'</div>'
+      +'<div class="oc-foot"><button class="onb-btn '+(done?'done':'')+'" data-id="'+m.id+'">'
+      +(done?'↺ 标记为待学习':'✓ 标记已学完')+'</button></div>';
+    card.querySelector('.oc-head').onclick=()=>card.classList.toggle('open');
+    card.querySelector('.onb-btn').onclick=(ev)=>{ ev.stopPropagation(); toggleModule(m.id, !done); };
+    list.appendChild(card);
+  });
+  renderExamEntry(st);
+}
+
+async function toggleModule(id, completed){
+  try{
+    const r=await fetch('/api/onboarding/mark',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({module_id:id,completed})});
+    const d=await r.json();
+    if(d.ok){ const mm=onbData.status.modules.find(x=>x.id===id); if(mm) mm.completed=d.completed; renderOnb(); }
+    else toast(d.error||'操作失败');
+  }catch(err){ toast('网络错误'); }
+}
+
+function renderExamEntry(st){
+  const box=document.getElementById('onbExam');
+  const es=onbData.examState;
+  if(!st.exam_opened){
+    box.innerHTML='<div class="exam-entry"><div class="et">入职测验</div>'
+      +'<div class="hint2">考试由总部在后台开启后，将在此显示入口。请先完成上方必读学习。</div></div>';
+    return;
+  }
+  if(!st.all_completed){
+    box.innerHTML='<div class="exam-entry"><div class="et">入职测验 · 已开启</div>'
+      +'<div class="hint2">请先完成全部必读板块（'+st.modules.filter(x=>x.completed).length+'/'+st.modules.length+'）后再参加测验。</div></div>';
+    return;
+  }
+  let btn='<button class="exam-btn" onclick="startExam()">开始考试</button>', label='入职测验 · 已开启';
+  if(es&&es.status==='submitted'){ btn='<button class="exam-btn" onclick="openExam()">查看考试结果</button>'; }
+  else if(es&&es.status==='in_progress'){ btn='<button class="exam-btn" onclick="openExam()">继续考试</button>'; }
+  box.innerHTML='<div class="exam-entry"><div class="et">'+label+'</div>'
+    +'<div class="hint2">共 20 题，满分 100 分，答题时间 20 分钟。考中不显示答案，交卷后显示正确答案与分数；中途退出可续答。</div>'
+    +btn+'</div>';
+}
+
+/* ---- 考试 ---- */
+async function openExam(){
+  try{
+    const r=await fetch('/api/exam/state'); const d=await r.json();
+    if(d.error){ toast(d.error); return; }
+    examView.classList.add('on');
+    if(d.status==='none'){
+      const s=onbData.status;
+      if(!s||!s.exam_available){ renderExamGate(); return; }
+      renderExamStart();
+    }else if(d.status==='in_progress'){ renderExamInProgress(d); }
+    else if(d.status==='submitted'){ renderExamResult(d); }
+  }catch(err){ toast('加载失败'); }
+}
+function closeExam(){ examView.classList.remove('on'); if(examTimer){clearInterval(examTimer);examTimer=null;} }
+
+function renderExamGate(){
+  document.getElementById('examTimer').style.display='none';
+  document.getElementById('examBody').innerHTML=
+    '<div class="exam-entry" style="margin-top:40px"><div class="et">入职测验</div>'
+    +'<div class="hint2">考试由总部开启且你完成全部必读板块后，方可参加。</div></div>';
+}
+function renderExamStart(){
+  document.getElementById('examTimer').style.display='none';
+  document.getElementById('examBody').innerHTML=
+    '<div class="exam-entry" style="margin-top:40px"><div class="et">入职测验说明</div>'
+    +'<div class="hint2">共 20 题（从题库随机抽取），每题 5 分满分 100。限时 20 分钟，到点自动交卷。考中不显示答案，交卷后显示正确答案与分数。中途退出可续答。</div>'
+    +'<button class="exam-btn" onclick="startExam()">开始考试</button></div>';
+}
+async function startExam(){
+  try{
+    const r=await fetch('/api/exam/start',{method:'POST'}); const d=await r.json();
+    if(d.error){ toast(d.error); return; }
+    renderExamInProgress(d);
+  }catch(err){ toast('网络错误'); }
+}
+function renderExamInProgress(d){
+  const body=document.getElementById('examBody'); body.innerHTML='';
+  const timer=document.getElementById('examTimer'); timer.style.display='block';
+  const wrap=document.createElement('div');
+  d.questions.forEach((q,idx)=>{
+    const card=document.createElement('div'); card.className='q-card';
+    let opts='';
+    q.options.forEach(o=>{
+      const sel=(d.answers[String(q.id)]===o.key);
+      opts+='<div class="q-opt'+(sel?' sel':'')+'" data-q="'+q.id+'" data-k="'+o.key+'">'
+        +'<span class="mk">'+o.key+'</span><span>'+escapeHtml(o.text)+'</span></div>';
+    });
+    card.innerHTML='<div class="qn">'+(idx+1)+'. '+escapeHtml(q.stem)+'</div>'+opts;
+    card.querySelectorAll('.q-opt').forEach(el=>{
+      el.onclick=()=>selectOption(q.id, el.dataset.k, card);
+    });
+    wrap.appendChild(card);
+  });
+  const submit=document.createElement('button');
+  submit.className='exam-btn'; submit.style.margin='10px auto 0'; submit.style.display='block';
+  submit.textContent='交卷'; submit.onclick=submitExam;
+  wrap.appendChild(submit); body.appendChild(wrap);
+  startCountdown(d.remaining);
+}
+function selectOption(qid,key,card){
+  card.querySelectorAll('.q-opt').forEach(el=>el.classList.toggle('sel', el.dataset.k===key));
+  fetch('/api/exam/answer',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({question_id:qid, selected:key})}).catch(()=>{});
+}
+function startCountdown(remaining){
+  if(examTimer) clearInterval(examTimer);
+  let remain=remaining||0;
+  const timer=document.getElementById('examTimer');
+  const fmt=()=>{const m=Math.floor(remain/60),s=remain%60;return (m<10?'0':'')+m+':'+(s<10?'0':'')+s;};
+  timer.textContent=fmt();
+  examTimer=setInterval(()=>{
+    remain--;
+    if(remain<=0){ timer.textContent='00:00'; clearInterval(examTimer); examTimer=null; autoSubmit(); return; }
+    timer.textContent=fmt();
+  },1000);
+}
+async function submitExam(){
+  try{
+    const r=await fetch('/api/exam/submit',{method:'POST'}); const d=await r.json();
+    if(d.error){ toast(d.error); return; }
+    renderExamResult(d);
+  }catch(err){ toast('网络错误'); }
+}
+async function autoSubmit(){
+  try{
+    const r=await fetch('/api/exam/submit',{method:'POST'}); const d=await r.json();
+    if(d.ok){ toast('时间到，已自动交卷'); renderExamResult(d); }
+  }catch(err){}
+}
+function renderExamResult(d){
+  if(examTimer){clearInterval(examTimer);examTimer=null;}
+  document.getElementById('examTimer').style.display='none';
+  const body=document.getElementById('examBody'); body.innerHTML='';
+  const score=document.createElement('div'); score.className='exam-score';
+  score.innerHTML='<div class="s">'+d.score+'</div><div class="t">满分 '+d.total+' 分</div>';
+  body.appendChild(score);
+  const wrap=document.createElement('div');
+  d.details.forEach((q,idx)=>{
+    const card=document.createElement('div'); card.className='q-card';
+    let opts='';
+    q.options.forEach(o=>{
+      let cls='q-opt';
+      if(o.key===q.answer) cls+=' correct';
+      else if(o.key===q.selected && q.selected!==q.answer) cls+=' wrong';
+      const tag = o.key===q.answer ? ' ✓' : (o.key===q.selected ? ' ✗' : '');
+      opts+='<div class="'+cls+'"><span class="mk">'+o.key+'</span><span>'+escapeHtml(o.text)+tag+'</span></div>';
+    });
+    const ok=(q.selected===q.answer);
+    card.innerHTML='<div class="qn">'+(idx+1)+'. '+escapeHtml(q.stem)+'</div>'+opts
+      +'<div class="q-result-note '+(ok?'ok':'no')+'">'+(ok?'回答正确':'你的答案：'+(q.selected||'未作答')+'，正确答案：'+q.answer)+'</div>';
+    wrap.appendChild(card);
+  });
+  body.appendChild(wrap);
+}
+
 bootAuth();
 </script>
 </body>

@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>拓店人员 Day 3 学习摸底测验 · 30 题预览</title>
+<style>
+  :root{
+    --blue-50:#E6F1FB; --blue-100:#B5D4F4; --blue-600:#185FA5; --blue-800:#0C447C;
+    --teal-50:#E1F5EE; --teal-100:#9FE1CB; --teal-600:#0F6E56; --teal-800:#085041;
+    --amber-50:#FAEEDA; --amber-100:#FAC775; --amber-600:#854F0B; --amber-800:#633806;
+    --ink:#1f2a37; --muted:#5b6b7d; --line:#e3e8ef; --bg:#f7f9fc; --card:#ffffff;
+    --coral-50:#FAECE7; --coral-600:#993C1D; --coral-800:#712B13;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--ink);line-height:1.7;padding:0}
+  .wrap{max-width:880px;margin:0 auto;padding:40px 24px 64px}
+  header{text-align:center;margin-bottom:28px}
+  header h1{font-size:24px;font-weight:700;color:var(--blue-800)}
+  header .sub{margin-top:8px;font-size:13px;color:var(--muted)}
+  .meta{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:16px}
+  .chip{background:var(--blue-50);color:var(--blue-800);border:1px solid var(--blue-100);padding:5px 12px;border-radius:20px;font-size:12px;font-weight:500}
+  .chip.amber{background:var(--amber-50);color:var(--amber-800);border-color:var(--amber-100)}
+  .chip.teal{background:var(--teal-50);color:var(--teal-800);border-color:var(--teal-100)}
+  .togglebar{display:flex;justify-content:center;gap:8px;margin:18px 0 24px}
+  .togglebar button{padding:8px 16px;border-radius:8px;border:1px solid var(--line);background:#fff;font-size:13px;cursor:pointer;color:var(--ink)}
+  .togglebar button.on{background:var(--blue-600);color:#fff;border-color:var(--blue-600)}
+  .q{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin-bottom:14px;box-shadow:0 1px 3px rgba(20,40,80,.04)}
+  .q-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .q-num{flex:0 0 auto;width:30px;height:30px;border-radius:8px;background:var(--blue-600);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600}
+  .q-topic{font-size:12px;color:var(--muted);background:var(--blue-50);padding:3px 10px;border-radius:14px}
+  .q-angle{font-size:12px;color:var(--teal-800);background:var(--teal-50);padding:3px 10px;border-radius:14px}
+  .q-stem{font-size:15px;font-weight:500;color:var(--ink);margin-bottom:12px}
+  .opts{display:grid;grid-template-columns:1fr;gap:6px}
+  .opt{display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;color:var(--ink);background:#fff}
+  .opt .letter{flex:0 0 auto;width:22px;height:22px;border-radius:6px;background:var(--blue-50);color:var(--blue-800);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600}
+  .opt.right{background:var(--teal-50);border-color:var(--teal-100);color:var(--teal-800)}
+  .opt.right .letter{background:var(--teal-600);color:#fff}
+  .answer-hide .opt.right{display:none}
+  .q.collapsed .opts{display:none}
+  .q.collapsed .answer-hide-toggle{display:none}
+  .ctrl{display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:12px;color:var(--muted)}
+  .ctrl button{background:none;border:none;color:var(--blue-600);cursor:pointer;font-size:12px;padding:2px 6px;border-radius:4px}
+  .ctrl button:hover{background:var(--blue-50)}
+  .summary{margin-top:30px;padding:20px 24px;background:var(--blue-50);border-radius:12px;border:1px solid var(--blue-100)}
+  .summary h3{font-size:16px;color:var(--blue-800);margin-bottom:10px}
+  .summary .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;font-size:13px}
+  .summary .cell{background:#fff;border-radius:8px;padding:8px 12px;border:1px solid var(--blue-100)}
+  .summary .cell b{color:var(--blue-800)}
+  footer{text-align:center;margin-top:30px;font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>拓店人员 Day 3 学习摸底测验</h1>
+    <div class="sub">30 题单选题题库 · 考试随机均衡抽 20 题 · 满分 100 · 20 分钟 · 断点续答</div>
+    <div class="meta">
+      <span class="chip">题库 30 题</span>
+      <span class="chip amber">考试抽 20 题</span>
+      <span class="chip teal">满分 100 · 20 分钟</span>
+      <span class="chip">总部后台指定开启</span>
+    </div>
+  </header>
+
+  <div class="togglebar">
+    <button class="on" data-show="answer">显示答案</button>
+    <button data-show="topic">仅按主题分类</button>
+    <button data-show="all">展开全部</button>
+  </div>
+
+  <div id="quiz"></div>
+
+  <div class="summary">
+    <h3>题库分布</h3>
+    <div class="grid">
+      <div class="cell"><b>产品知识</b><br>8 题 (Q1–Q8)</div>
+      <div class="cell"><b>抖音来客平台</b><br>5 题 (Q9–Q13)</div>
+      <div class="cell"><b>门店准入</b><br>4 题 (Q14–Q17)</div>
+      <div class="cell"><b>入驻流程</b><br>4 题 (Q18–Q21)</div>
+      <div class="cell"><b>品牌授权</b><br>3 题 (Q22–Q24)</div>
+      <div class="cell"><b>入驻审核</b><br>6 题 (Q25–Q30)</div>
+    </div>
+    <p style="margin-top:12px;font-size:13px;color:var(--ink)">
+      <b>多角度设计</b>：记忆型 12 题 · 理解型 7 题 · 应用型 9 题 · 细节型 5 题 · 对比型 1 题 · 综合应用 4 题（部分题同时属多个角度）。
+    </p>
+    <p style="margin-top:8px;font-size:13px;color:var(--ink)">
+      <b>考试规则</b>：账号由总部后台代建（录入入职日期+分配岗位）→ 总部在账号管理页<b>随时指定开启考试</b>，开启后员工端即时出现入口 → 从上述 30 题题库中<b>随机均衡抽取 20 题</b>（各主题配额：产品5/平台3/准入3/流程3/授权2/审核4，每题 5 分，满分 100）→ 考试过程<b>不显示答案</b>，<b>20 分钟</b>到点自动结算已填部分 → 中途退出可<b>断点续答</b>（服务端保存抽题+作答+截止时间）→ 考完显示<b>正确答案+分数</b>，并在员工<b>账号详情页</b>留存分数与逐题详情。
+    </p>
+  </div>
+
+  <footer>题库 JSON 已落地 <code>kb/quiz/quiz-bank.json</code>，Phase 1 直接挂入系统即可。</footer>
+</div>
+
+<script>
+const BANK = {
+  questions: [
+    {id:1,topic:"产品知识",angle:"记忆",stem:"西洋参养生肉丸的核心卖点是？",options:{A:"健脾补肺，香气浓郁",B:"补气养阴，清热生津",C:"补肾益精，养血润燥",D:"养心安神，补气养血"},answer:"B"},
+    {id:2,topic:"产品知识",angle:"应用",stem:"一位店主说「我想要老少皆宜、健康化湿的肉丸」，应优先推荐？",options:{A:"西洋参养生肉丸",B:"五指毛桃养生肉丸",C:"灵芝养生肉丸",D:"海参养生肉丸"},answer:"B"},
+    {id:3,topic:"产品知识",angle:"记忆",stem:"五指毛桃花胶肉丸的突出功效是？",options:{A:"健脾补肺",B:"补气养阴",C:"养颜润肤，滋补气血",D:"补肾益精"},answer:"C"},
+    {id:4,topic:"产品知识",angle:"细节",stem:"五指毛桃海参肉丸的官方产品文案将其搭配称为？",options:{A:"陆空双鲜",B:"海陆双鲜",C:"山海双鲜",D:"冰火双鲜"},answer:"B"},
+    {id:5,topic:"产品知识",angle:"记忆",stem:"海参养生肉丸的功效是？",options:{A:"补气养阴，清热生津",B:"健脾补肺",C:"补肾益精，养血润燥",D:"养心安神"},answer:"C"},
+    {id:6,topic:"产品知识",angle:"应用",stem:"客户反馈「睡眠不好，想补气养血」，最合适推荐？",options:{A:"西洋参养生肉丸",B:"五指毛桃养生肉丸",C:"海参养生肉丸",D:"灵芝养生肉丸"},answer:"D"},
+    {id:7,topic:"产品知识",angle:"对比",stem:"6 款肉丸中，同时含「花胶」和「五指毛桃」两种食材的是？",options:{A:"五指毛桃养生肉丸",B:"五指毛桃花胶肉丸",C:"五指毛桃海参肉丸",D:"灵芝养生肉丸"},answer:"B"},
+    {id:8,topic:"产品知识",angle:"细节",stem:"五指毛桃被誉为？",options:{A:"北芪",B:"南芪",C:"黄芪",D:"红芪"},answer:"B"},
+    {id:9,topic:"抖音来客平台",angle:"理解",stem:"抖音来客云连锁「核心产品定位」是全链路闭环经营，以下哪项不在闭环内？",options:{A:"门店管理",B:"内容引流",C:"线下配送",D:"交易核销",E:"数据分析"},answer:"C"},
+    {id:10,topic:"抖音来客平台",angle:"记忆",stem:"以下哪一项不属于抖音来客「6 大优势」？",options:{A:"品牌效应",B:"流量共享",C:"高额加盟费",D:"资源整合",E:"零成本入驻"},answer:"C"},
+    {id:11,topic:"抖音来客平台",angle:"理解",stem:"抖音来客「流量共享」具体指？",options:{A:"共享门店库存",B:"任一一家门店的达人推广视频可推送",C:"共享店主账户",D:"共享财务流水"},answer:"B"},
+    {id:12,topic:"抖音来客平台",angle:"应用",stem:"「独立核销分账」的优势是？",options:{A:"线下手工对账",B:"信息化、可视化、更安全更透明",C:"每月固定抽佣",D:"总部统一核算"},answer:"B"},
+    {id:13,topic:"抖音来客平台",angle:"理解",stem:"抖音来客「品牌效应」的核心含义是？",options:{A:"多店独立运营",B:"主品牌串联各单店，集中打造中央直播间",C:"只做单店品牌",D:"品牌方承担所有风险"},answer:"B"},
+    {id:14,topic:"门店准入",angle:"细节",stem:"门店准入的「附近小区规模」硬性要求是？",options:{A:"服务小区 ≥ 300 户",B:"服务小区 ≥ 500 户，或辐射 3 个以上相邻小区合计 ≥ 800 户",C:"服务小区 ≥ 1000 户",D:"任意小区规模均可"},answer:"B"},
+    {id:15,topic:"门店准入",angle:"细节",stem:"门店位置应在目标小区步行多少分钟生活圈内？",options:{A:"3 分钟",B:"5 分钟",C:"10 分钟",D:"15 分钟"},answer:"B"},
+    {id:16,topic:"门店准入",angle:"理解",stem:"门店准入的「证照齐全」指具备？",options:{A:"仅需营业执照",B:"仅需食品经营许可证",C:"营业执照 + 食品经营许可证（或仅销售预包装食品备案）",D:"仅需卫生许可证"},answer:"C"},
+    {id:17,topic:"门店准入",angle:"应用",stem:"某便利店位于繁华商圈，附近 1 个小区 300 户、周边另有 4 个老小区合计 900 户，但店内无冷冻设备。该门店是否满足拓店准入？",options:{A:"完全满足",B:"不满足（缺冷冻条件）",C:"不满足（小区规模）",D:"不满足（缺证照）"},answer:"B"},
+    {id:18,topic:"入驻流程",angle:"细节",stem:"仅售预包装食品备案的线上办理周期是？",options:{A:"即时出结果",B:"1-3 个工作日内出结果",C:"1 周",D:"半个月"},answer:"B"},
+    {id:19,topic:"入驻流程",angle:"理解",stem:"门店资质准备中「门店信息」不需要以下哪项？",options:{A:"门店详细地址（与营业执照一致）",B:"营业时间",C:"门头照",D:"财务报表"},answer:"D"},
+    {id:20,topic:"入驻流程",angle:"记忆",stem:"入驻所需的「法人信息」具体包括？",options:{A:"仅法定代表人身份证",B:"仅法人手机号",C:"法定代表人身份证 + 法人手机号",D:"法人银行卡"},answer:"C"},
+    {id:21,topic:"入驻流程",angle:"细节",stem:"抖音来客入驻申请的审核时间通常为？",options:{A:"1-3 小时",B:"1-3 个工作日",C:"1 周",D:"半个月"},answer:"B"},
+    {id:22,topic:"品牌授权",angle:"应用",stem:"个人店非连锁（无排他条款）的品牌授权步骤是？",options:{A:"直接签合同即可",B:"把带有喜客丸的新门头贴上去拍照，再由我们出具品牌授权书",C:"只需口头同意",D:"由总部代办所有手续"},answer:"B"},
+    {id:23,topic:"品牌授权",angle:"理解",stem:"主体为「品牌方非个人」或「公司有排他条款」时，需要品牌方出具？",options:{A:"营业执照",B:"商标授权书",C:"食品许可证",D:"合作意向书"},answer:"B"},
+    {id:24,topic:"品牌授权",angle:"应用",stem:"主体为「个人」且没有签署排他条款的合同时，正确做法是？",options:{A:"不能授权",B:"邀约或制作新门头拍照，再由我们出具品牌授权书",C:"需总部派人",D:"走诉讼"},answer:"B"},
+    {id:25,topic:"入驻审核",angle:"应用",stem:"门头照被判定「与营业执照名称不一致」，正确处理方式是？",options:{A:"重新拍照即可",B:"改门店名称",C:"更换门头上的店牌名称，使其与营业执照上名称或简称保持一致",D:"删除该照片"},answer:"C"},
+    {id:26,topic:"入驻审核",angle:"应用",stem:"门头照被判定「阴阳画面」应如何处理？",options:{A:"重新拍照，平台会实测拍照，门头照需避免阴阳画面",B:"加滤镜",C:"改成黑白色",D:"删除照片"},answer:"A"},
+    {id:27,topic:"入驻审核",angle:"细节",stem:"入驻审核中「地址信息不精确」的整改标准是？",options:{A:"写到区即可",B:"写到街道即可",C:"必须精确到门牌号，不可只写「XX路附近」",D:"写到商圈即可"},answer:"C"},
+    {id:28,topic:"入驻审核",angle:"应用",stem:"若门店地址在高德腾讯地图上找不到 POI，正确做法是？",options:{A:"放弃入驻",B:"标注大致位置",C:"先在高德腾讯地图上新建后再入驻",D:"投诉地图公司"},answer:"C"},
+    {id:29,topic:"入驻审核",angle:"综合应用",stem:"某门店已上传所有资质照片，但系统提示「地址被认领」。正确处理顺序是？",options:{A:"重新提交入驻",B:"改门店名称",C:"先解绑再入驻",D:"直接放弃"},answer:"C"},
+    {id:30,topic:"入驻审核",angle:"综合应用",stem:"店主反馈「上传了营业执照，平台仍提示行业资质缺失」——最可能的原因是？",options:{A:"营业执照没拍清楚",B:"缺食品经营许可证或仅销售预包装食品备案",C:"门头照不清晰",D:"地址错误"},answer:"B"}
+  ]
+};
+
+const LETTERS = ["A","B","C","D","E"];
+const root = document.getElementById('quiz');
+
+BANK.questions.forEach(q => {
+  const card = document.createElement('div');
+  card.className = 'q';
+  let html = `
+    <div class="q-head">
+      <div class="q-num">${q.id}</div>
+      <div class="q-topic">${q.topic}</div>
+      <div class="q-angle">${q.angle}</div>
+    </div>
+    <div class="q-stem">${q.stem}</div>
+    <div class="opts">`;
+  for (const L of LETTERS) {
+    if (q.options[L] === undefined) continue;
+    const isRight = L === q.answer;
+    html += `<div class="opt${isRight ? ' right' : ''}"><div class="letter">${L}</div><div>${q.options[L]}</div></div>`;
+  }
+  html += `</div>
+    <div class="ctrl">
+      <span></span>
+      <button class="answer-hide-toggle">收起 / 展开</button>
+    </div>`;
+  card.innerHTML = html;
+  card.querySelector('.answer-hide-toggle').onclick = () => card.classList.toggle('collapsed');
+  root.appendChild(card);
+});
+
+// Toggle: 隐藏/显示答案
+document.querySelectorAll('.togglebar button').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.togglebar button').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    const mode = btn.dataset.show;
+    document.body.classList.toggle('answer-hide', mode === 'hide' || false);
+    // mode "topic" 暂不实现特殊排序
+  };
+});
+</script>
+</body>
+</html>
