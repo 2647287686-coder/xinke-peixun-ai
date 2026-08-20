@@ -1,22 +1,37 @@
-# 项目长期笔记：新员工培训 AI 助手
+# 项目长期笔记：拓店人员培训 AI 助手（喜客丸）
 
-## 目标
-给入职新人做一个手机浏览器直接打开就能提问的 AI 助手，回答基于内部「新员工培训」资料库 + 实时联网核验的时效性信息。
+## 定位（2026-08-20 升级）
+从通用「新员工培训 AI 助手」升级为**拓店人员试岗期 AI 陪伴助手**——覆盖喜客丸拓店岗 7 天试岗期：前 3 天学习培训（产品/抖音来客/入驻+备案，**不设每日小测**，Day 3 下午在小助手里完成 **30 道选择小测**做摸底） + 后 4 天实操考核（12 家拜访/1 家入驻/Day6 短会）→ 总部判定通过转正或触发红线淘汰。终极目标：大幅减轻老人带教、优化人力成本、提升人效。规划框架见 `onboarding-framework.html`。
+
+## 核心试岗机制
+- Day1-3 学习：产品(6款肉丸) → 抖音来客云连锁 → 入驻流程+备案 → **Day3 下午 30 道选择小测（知识摸底，不设硬性通过线，后台看每人每题答题详情）**
+- Day4-7 实操：每日≥3家拜访(共12家) + 4天内跑通1家成功入驻 + 每日20点提交登记表 + Day6上午10点短会
+- 考核：以拜访数量为主、具体表现为辅（结果导向）
+- 4 条淘汰红线（任一即淘汰）：虚假拜访 / 飞单切单 / 连续2天过程量为0 / 不服从管理
+
+## 拓店岗位核心知识
+- **6 款肉丸产品矩阵**：西洋参养生肉丸、五指毛桃养生肉丸、五指毛桃花胶肉丸、五指毛桃海参肉丸、海参养生肉丸、灵芝养生肉丸
+- **抖音来客云连锁**：基础概念（品牌效应/流量共享/销量共享/零成本入驻/资源整合/独立核销分账 6 大优势）+ 门店准入 5 条准则 + 入驻流程
+- **入驻资质**：营业执照 / 食品经营许可证或仅售预包装食品备案 / 门头照 / 内部环境照 / 法人信息
+- **原始资料**：`D:/肉丸本地生活/拓店新人培训资料/`（含 3 张图：试岗考核表、产品矩阵、抖音来客知识体系）——待 OCR/抽文本后入 `kb/text/`
 
 ## 架构
 - 后端 `app.py`（Flask）：BM25 检索（`kb/text`，jieba 分词）+ SerpAPI 联网核验（`SEARCH_ENGINE=baidu`）+ DeepSeek 流式生成带出处回答。
 - 前端 `static/index.html`：移动端优先对话页。
-- 部署目标：**Render.com**（免费云，跑 Python 后端；CloudStudio 仅支持纯静态无法满足）。配置见 `Procfile` / `render.yaml` / `requirements.txt`。
+- 部署：**Render.com**。配置见 `Procfile` / `render.yaml` / `requirements.txt`。线上 URL：`https://xinke-peixun-ai.onrender.com`
+- 数据库：Postgres(Neon Direct connection, `?sslmode=require`) + `pool_pre_ping=True, pool_recycle=300`；SQLite 本地回退
+- 已有功能：账号体系、热门问题榜、👍👎反馈、在线 KB 管理、删除员工、KB 启动预加载
 
-## 知识库
-- 来源：workbuddy.cn 资料库「新员工培训」空间（spaceId `obj0gboWcbKCS6OI3nrxWj`），下载 45 节点，抽取 14 篇文本 / 96 片段到 `kb/text/`。
-- 抽取脚本 `kb/extract_text.py`、下载脚本 `kb/download_kb.py`。
+## 实施路线图
+- **P1（~2周）**：3天学习清单 + 产品卡 + 抖音来客知识库 + 入驻/备案流程 + 话术库 + 盲区收集 + **30 道选择小测模块（题库已落地 kb/quiz/quiz-bank.json）**
+- **P2（3~4周）**：**Day3 30 题选择小测线上化（员工端答题+后台看答题详情）** + 实过程量看板 + 淘汰红线预警
+- **P3（5~6周）**：登记表汇总/导出 + 通过率/淘汰率报表 + 多轮追问 + 语音
+- **P4（长期）**：题库/话术库沉淀 + 知识底座分类重构
 
 ## 关键约定
-- API Key 存于 `.env`（已被 `.gitignore` 忽略），**切勿提交到 git**。本地用 `_load_local_env()` 手写解析；Render 用平台环境变量注入。
-- 联网核验：SerpAPI 优先，未配置则回退百度/搜狗免费搜索（云服务器 IP 可能被反爬）。
-
-## 上线待办
-1. 用户 `git push` 到 GitHub。
-2. Render 连仓库部署，填 `DEEPSEEK_API_KEY`、`SEARCH_API_KEY` 环境变量。
-3. 拿到 `https://xxx.onrender.com` 发新员工群。
+- API Key 存于 `.env`（gitignored）。本地 `_load_local_env()` 解析；Render 用平台 env 注入。
+- `seed_admin` 每次部署 upsert 主账号（手机 `ADMIN_PHONE` / 密码 `ADMIN_DEFAULT_PASSWORD` env 为准）。
+- KB 必须放在 `with app.app_context()` 初始化块中预加载（gunicorn 启动时不走 `if __name__`）。
+- 前端 `getElementById` 必须 null 检查：引用不存在元素会 TypeError 终止整段 JS。
+- `feedback`: Feedback 模型关联 UsageLog，`/api/ask` done 事件返回 `log_id`。
+- KB 在线编辑文件名安全校验：`^[a-zA-Z0-9_-]+\.txt$`。
