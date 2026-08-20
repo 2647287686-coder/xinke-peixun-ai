@@ -955,7 +955,11 @@ def admin_delete_user(uid):
         other_admins = User.query.filter(User.role == "admin", User.id != uid).count()
         if other_admins == 0:
             return jsonify({"error": "至少保留一个管理员，无法删除最后一位管理员"}), 400
-    # 级联清理：使用记录 + 密码重置申请
+    # 级联清理（顺序：先删依赖 UsageLog 的 Feedback，再删其余子表，最后删用户）
+    # Postgres 严格外键约束，漏清任一子表都会 500；SQLite 本地默认不强制外键故难复现
+    Feedback.query.filter_by(user_id=uid).delete()
+    LearningProgress.query.filter_by(user_id=uid).delete()
+    QuizAttempt.query.filter_by(user_id=uid).delete()
     UsageLog.query.filter_by(user_id=uid).delete()
     ResetRequest.query.filter_by(user_id=uid).delete()
     phone = target.phone
