@@ -39,6 +39,14 @@
     white-space:pre-wrap;word-break:break-word}
   #announce b{color:var(--brand-d)}
 
+  /* 新员工待办横幅 */
+  #todoBanner{display:none;align-items:center;gap:10px;background:#eef7f1;color:#14532d;
+    border-bottom:1px solid #cde9d6;padding:10px 14px;font-size:13px;line-height:1.5;
+    cursor:pointer;z-index:2;flex-wrap:wrap}
+  #todoBanner b{color:#0f766e}
+  #todoBanner .todo-go{flex:0 0 auto;background:#0f766e;color:#fff;border:none;border-radius:16px;
+    padding:5px 14px;font-size:13px;font-weight:600}
+
   #toolbar{background:var(--card);border-bottom:1px solid var(--line);overflow:hidden;
     max-height:0;transition:max-height .26s ease;display:flex;flex-wrap:wrap;gap:8px;
     padding:0 12px;z-index:2}
@@ -233,6 +241,7 @@
   </header>
 
   <div id="announce"></div>
+  <div id="todoBanner" onclick="openOnb()"></div>
 
   <div id="toolbar">
     <button class="tool" id="tRegen"><span class="ic">🔄</span>重新生成</button>
@@ -598,6 +607,7 @@ async function enterApp(){
   showApp();
   await loadConfig();
   document.getElementById('adminBtn').style.display = (currentUser&&currentUser.role==='admin')?'':'none';
+  updateTodoBanner();
 }
 
 function bootAuth(){
@@ -618,7 +628,7 @@ let onbData={modules:[],status:null,examState:null};
 let examTimer=null;
 
 function openOnb(){ loadOnboarding(); onbView.classList.add('on'); }
-function closeOnb(){ onbView.classList.remove('on'); }
+function closeOnb(){ onbView.classList.remove('on'); updateTodoBanner(); }
 
 async function loadOnboarding(){
   try{
@@ -702,7 +712,7 @@ async function openExam(){
     else if(d.status==='submitted'){ renderExamResult(d); }
   }catch(err){ toast('加载失败'); }
 }
-function closeExam(){ examView.classList.remove('on'); if(examTimer){clearInterval(examTimer);examTimer=null;} }
+function closeExam(){ examView.classList.remove('on'); if(examTimer){clearInterval(examTimer);examTimer=null;} updateTodoBanner(); }
 
 function renderExamGate(){
   document.getElementById('examTimer').style.display='none';
@@ -802,6 +812,36 @@ function renderExamResult(d){
     wrap.appendChild(card);
   });
   body.appendChild(wrap);
+}
+
+/* ============ 首页待办横幅 ============ */
+async function updateTodoBanner(){
+  const bn=document.getElementById('todoBanner');
+  if(!bn)return;
+  if(!currentUser||currentUser.role!=='employee'){ bn.style.display='none'; return; }
+  try{
+    const [s,e]=await Promise.all([
+      fetch('/api/onboarding/status').then(r=>r.json()),
+      fetch('/api/exam/state').then(r=>r.json()).catch(()=>({status:'none'}))
+    ]);
+    if(s.error){ bn.style.display='none'; return; }
+    const mods=s.modules||[], total=mods.length, done=mods.filter(x=>x.completed).length;
+    let html='', act='';
+    if(total&&done<total){
+      html='📘 新员工必读：还剩 <b>'+(total-done)+'</b> 个板块未学完（'+done+' / '+total+'），学完全部板块才能参加入职考试';
+      act='去学习';
+    }else if(total&&!s.exam_opened){
+      html='✅ 必读板块已全部学完！等待总部为你开启入职考试，开启后会在这里提醒你';
+    }else if(total&&s.exam_opened&&e.status!=='submitted'){
+      html='📝 入职考试已开启：<b>20 题 / 20 分钟</b>，可断点续答，点击进入答题';
+      act='去考试';
+    }else{
+      html='';
+    }
+    if(!html){ bn.style.display='none'; return; }
+    bn.innerHTML='<span style="flex:1">'+html+'</span>'+(act?'<span class="todo-go">'+act+' →</span>':'');
+    bn.style.display='flex';
+  }catch(err){ bn.style.display='none'; }
 }
 
 bootAuth();

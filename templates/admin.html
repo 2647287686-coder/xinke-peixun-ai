@@ -117,6 +117,7 @@
     <button class="tab on" data-p="overview">数据概览</button>
     <button class="tab" data-p="users">用户管理</button>
     <button class="tab" data-p="quiz">考试管理</button>
+    <button class="tab" data-p="onb">必读与题库</button>
     <button class="tab" data-p="feedback">反馈管理</button>
     <button class="tab" data-p="kb">知识库</button>
     <button class="tab" data-p="settings">公告与设置</button>
@@ -190,6 +191,37 @@
     <div class="box">
       <h3>⚠️ 易错知识点 Top（错题分布）</h3>
       <div id="weakArea"><div class="hint">加载中…</div></div>
+    </div>
+  </section>
+
+  <!-- 必读与题库管理 -->
+  <section class="panel" id="p-onb">
+    <div class="box">
+      <h3>📤 上传培训资料 → AI 自动解析</h3>
+      <div class="hint">上传 xlsx / csv / docx / pdf / txt / md 文件，AI 自动解析内容并生成「必读板块新增条目」+「新考试题目」建议；勾选需要的项，点「应用」，最后分别点下方保存按钮生效。</div>
+      <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;align-items:center">
+        <input type="file" id="matFile" accept=".xlsx,.xlsm,.csv,.docx,.pdf,.txt,.md" style="flex:1;min-width:200px" />
+        <button class="btn" id="matBtn" onclick="analyzeMaterial()">🔍 解析并生成建议</button>
+      </div>
+      <div id="matResult"><div class="hint">尚未上传。AI 解析约需 30~90 秒，请耐心等待。</div></div>
+    </div>
+    <div class="box">
+      <h3>📘 必读板块编辑 <span id="onbSrc" style="font-size:12px;color:var(--sub);font-weight:400"></span></h3>
+      <div class="hint">每个板块：标题 + 一句话摘要 + 内容（一行一条，员工端按行展示）。</div>
+      <div id="onbEditList"></div>
+      <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn sm ghost" onclick="addModule()">＋ 新增板块</button>
+        <button class="btn" onclick="saveOnb()">💾 保存必读板块</button>
+      </div>
+    </div>
+    <div class="box">
+      <h3>📝 题库编辑（<span id="quizCount">0</span> 题）<span id="quizSrc" style="font-size:12px;color:var(--sub);font-weight:400"></span></h3>
+      <div class="hint">考试从题库按主题均衡抽 20 题；题库扩充后抽题范围自动扩大。删除题目后对应历史成绩不受影响。</div>
+      <div id="quizEditList"></div>
+      <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn sm ghost" onclick="addQuestion()">＋ 新增题目</button>
+        <button class="btn" onclick="saveQuiz()">💾 保存题库</button>
+      </div>
     </div>
   </section>
 
@@ -281,6 +313,7 @@ document.querySelectorAll('.tab').forEach(b=>{
     if(b.dataset.p==='feedback') loadFeedback(1);
     if(b.dataset.p==='kb') loadKbFiles();
     if(b.dataset.p==='quiz') loadQuizResults();
+    if(b.dataset.p==='onb') loadOnbEditor();
   };
 });
 
@@ -583,6 +616,211 @@ async function loadQuizResults(){
         +`<div class="qa">知识点：${escapeHtml(w.topic)} · 错 ${w.wrong_count} 人次 · 正确答案：${w.answer}</div></div>`;
     }).join('');
   }
+}
+
+/* ============ 必读与题库管理 ============ */
+const QUIZ_TOPICS=['产品知识','抖音来客平台','门店准入','入驻流程','品牌授权','入驻审核'];
+let onbDoc=null, quizDoc=null, matSuggest=null;
+
+async function loadOnbEditor(){
+  if(!onbDoc){
+    const d=await api('/api/admin/onboarding');
+    if(d.error){toast(d.error);return;}
+    onbDoc=d.doc;
+    $('onbSrc').textContent='（当前来源：'+(d.source==='db'?'后台编辑版':'初始文件版')+'）';
+  }
+  if(!quizDoc){
+    const q=await api('/api/admin/quiz');
+    if(q.error){toast(q.error);return;}
+    quizDoc=q.doc;
+    $('quizSrc').textContent='（当前来源：'+(q.source==='db'?'后台编辑版':'初始文件版')+'）';
+  }
+  renderOnbEditor(); renderQuizEditor();
+}
+
+function renderOnbEditor(){
+  const box=$('onbEditList'); box.innerHTML='';
+  (onbDoc.modules||[]).forEach((m,i)=>{
+    const card=document.createElement('div');
+    card.style.cssText='border:1px solid var(--line);border-radius:10px;padding:12px;margin-top:10px';
+    card.innerHTML=
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+      +'<input type="text" value="'+escapeHtml(m.id)+'" disabled style="width:110px;background:#f5f6f8;font-size:12px" title="板块id（不可改）"/>'
+      +'<input type="text" data-f="title" value="'+escapeHtml(m.title)+'" placeholder="板块标题" style="flex:1;min-width:140px;font-weight:600"/>'
+      +'<a class="act" style="color:#c0392b" onclick="delModule('+i+')">删除板块</a></div>'
+      +'<input type="text" data-f="summary" value="'+escapeHtml(m.summary||'')+'" placeholder="一句话摘要（选填）" style="width:100%;margin-top:8px;font-size:13px"/>'
+      +'<textarea data-f="content" rows="'+Math.min(14,Math.max(4,(m.content||[]).length))+'" placeholder="内容：一行一条" style="width:100%;margin-top:8px;font-size:13px">'+escapeHtml((m.content||[]).join('\n'))+'</textarea>'
+      +'<div class="hint">共 '+(m.content||[]).length+' 条内容</div>';
+    card.querySelector('[data-f=title]').oninput=e=>m.title=e.target.value;
+    card.querySelector('[data-f=summary]').oninput=e=>m.summary=e.target.value;
+    card.querySelector('[data-f=content]').oninput=e=>m.content=e.target.value.split('\n').map(s=>s.trim()).filter(s=>s);
+    box.appendChild(card);
+  });
+}
+
+function addModule(){
+  const id=prompt('新板块 id（英文，如 products2）：');
+  if(!id)return;
+  const title=prompt('板块标题：');
+  if(!title)return;
+  if((onbDoc.modules||[]).some(m=>m.id===id)){toast('id 已存在');return;}
+  onbDoc.modules.push({id:id,title:title,order:onbDoc.modules.length+1,summary:'',content:[]});
+  renderOnbEditor();
+}
+function delModule(i){
+  if(!confirm('确认删除板块「'+onbDoc.modules[i].title+'」？'))return;
+  onbDoc.modules.splice(i,1); renderOnbEditor();
+}
+async function saveOnb(){
+  const doc={meta:onbDoc.meta||{},modules:onbDoc.modules};
+  const d=await api('/api/admin/onboarding',{method:'POST',body:JSON.stringify({doc:doc})});
+  if(d.error){toast(d.error);return;}
+  toast('必读板块已保存（'+d.modules+' 个板块）');
+  $('onbSrc').textContent='（当前来源：后台编辑版）';
+}
+
+function renderQuizEditor(){
+  const box=$('quizEditList'); box.innerHTML='';
+  const qs=quizDoc.questions||[];
+  $('quizCount').textContent=qs.length;
+  qs.forEach((q,i)=>{
+    const card=document.createElement('div');
+    card.style.cssText='border:1px solid var(--line);border-radius:10px;padding:12px;margin-top:10px';
+    const keys=Object.keys(q.options||{});
+    const optHtml=keys.map(function(L,j){
+      return '<div style="display:flex;gap:6px;margin-top:6px;align-items:center">'
+        +'<span style="font-size:12px;color:var(--sub);width:14px">'+L+'</span>'
+        +'<input type="text" value="'+escapeHtml(q.options[L]||'')+'" data-oi="'+L+'" placeholder="选项 '+L+'" style="flex:1;font-size:13px"/>'
+        +(keys.length>2?'<a class="act" style="color:#c0392b" onclick="delOption('+i+',\''+L+'\')">✕</a>':'')
+        +'</div>';
+    }).join('');
+    card.innerHTML=
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+      +'<span style="font-size:12px;color:var(--sub)">#'+q.id+'</span>'
+      +'<select data-f="topic" style="font-size:13px">'+QUIZ_TOPICS.map(t=>'<option '+(t===q.topic?'selected':'')+'>'+t+'</option>').join('')+'</select>'
+      +'<a class="act" style="color:#c0392b;margin-left:auto" onclick="delQuestion('+i+')">删除题目</a></div>'
+      +'<textarea data-f="stem" rows="2" placeholder="题干" style="width:100%;margin-top:8px;font-size:13px">'+escapeHtml(q.stem)+'</textarea>'
+      +optHtml
+      +'<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:center">'
+      +'<a class="act" onclick="addOption('+i+')">＋ 选项</a>'
+      +'<span style="font-size:12px;color:var(--sub)">答案</span>'
+      +'<select data-f="answer" style="font-size:13px">'+keys.map(L=>'<option '+(L===q.answer?'selected':'')+'>'+L+'</option>').join('')+'</select>'
+      +'<input type="text" data-f="explanation" value="'+escapeHtml(q.explanation||'')+'" placeholder="解析（考后展示，选填）" style="flex:1;min-width:160px;font-size:13px"/>'
+      +'</div>';
+    card.querySelector('[data-f=topic]').onchange=e=>q.topic=e.target.value;
+    card.querySelector('[data-f=stem]').oninput=e=>q.stem=e.target.value;
+    card.querySelector('[data-f=answer]').onchange=e=>q.answer=e.target.value;
+    card.querySelector('[data-f=explanation]').oninput=e=>q.explanation=e.target.value;
+    card.querySelectorAll('input[data-oi]').forEach(inp=>{
+      inp.oninput=e=>{q.options[e.target.dataset.oi]=e.target.value;};
+    });
+    box.appendChild(card);
+  });
+}
+
+function addOption(i){
+  const q=quizDoc.questions[i], keys=Object.keys(q.options);
+  if(keys.length>=6){toast('最多 6 个选项');return;}
+  q.options[String.fromCharCode(65+keys.length)]=''; renderQuizEditor();
+}
+function delOption(i,L){
+  const q=quizDoc.questions[i];
+  delete q.options[L];
+  const keys=Object.keys(q.options);
+  if(!keys.includes(q.answer)) q.answer=keys[0];
+  renderQuizEditor();
+}
+function delQuestion(i){
+  if(!confirm('确认删除该题？'))return;
+  quizDoc.questions.splice(i,1); renderQuizEditor();
+}
+function addQuestion(){
+  const maxId=quizDoc.questions.reduce((m,q)=>Math.max(m,+q.id||0),0);
+  quizDoc.questions.push({id:maxId+1,topic:QUIZ_TOPICS[0],stem:'',
+    options:{A:'',B:'',C:'',D:''},answer:'A',explanation:''});
+  renderQuizEditor();
+  const list=$('quizEditList'); if(list.lastElementChild)list.lastElementChild.scrollIntoView({behavior:'smooth'});
+}
+async function saveQuiz(){
+  const doc={meta:quizDoc.meta||{},questions:quizDoc.questions};
+  const d=await api('/api/admin/quiz',{method:'POST',body:JSON.stringify({doc:doc})});
+  if(d.error){toast(d.error);return;}
+  toast('题库已保存（'+d.questions+' 题）');
+  $('quizSrc').textContent='（当前来源：后台编辑版）';
+}
+
+/* ---- 上传资料 AI 解析 ---- */
+async function analyzeMaterial(){
+  const fi=$('matFile');
+  if(!fi.files||!fi.files.length){toast('请先选择文件');return;}
+  const btn=$('matBtn'); btn.disabled=true; btn.textContent='AI 解析中…';
+  $('matResult').innerHTML='<div class="hint">⏳ 正在解析文件并调用 AI 生成建议（约 30~90 秒）…</div>';
+  try{
+    const fd=new FormData(); fd.append('file',fi.files[0]);
+    const r=await fetch('/api/admin/material/analyze',{method:'POST',body:fd});
+    const d=await r.json();
+    if(d.error){$('matResult').innerHTML='<div class="hint" style="color:#c0392b">❌ '+escapeHtml(d.error)+'</div>';return;}
+    matSuggest=d; renderMatResult();
+  }catch(e){
+    $('matResult').innerHTML='<div class="hint" style="color:#c0392b">❌ 请求失败：'+escapeHtml(e.message)+'</div>';
+  }finally{btn.disabled=false;btn.textContent='🔍 解析并生成建议';}
+}
+
+function renderMatResult(){
+  const d=matSuggest, box=$('matResult');
+  const modTitle=id=>{const m=(onbDoc.modules||[]).find(x=>x.id===id);return m?m.title:id;};
+  let html='<div class="hint" style="margin-top:12px">📄 《'+escapeHtml(d.filename)+'》解析出 '+d.chars+' 字。以下为 AI 建议（勾选需要的项）：</div>';
+  if((d.module_updates||[]).length){
+    html+='<div style="font-weight:600;margin-top:10px">📘 建议新增到必读板块</div>';
+    d.module_updates.forEach(function(mu,i){
+      html+='<div style="margin-top:6px;font-size:13px;color:var(--sub)">→ 板块「'+escapeHtml(modTitle(mu.module_id))+'」</div>';
+      mu.new_items.forEach(function(it,j){
+        html+='<label style="display:flex;gap:6px;margin-top:4px;font-size:13px;align-items:flex-start">'
+          +'<input type="checkbox" checked data-mi="'+i+'" data-ij="'+j+'"/>'
+          +'<span style="flex:1">'+escapeHtml(it)+'</span></label>';
+      });
+    });
+  }
+  if((d.new_questions||[]).length){
+    html+='<div style="font-weight:600;margin-top:14px">📝 建议新增考题</div>';
+    d.new_questions.forEach(function(q,i){
+      const optTxt=Object.keys(q.options||{}).map(L=>L+'. '+escapeHtml(q.options[L])).join('　');
+      html+='<label style="display:flex;gap:6px;margin-top:4px;font-size:13px;align-items:flex-start">'
+        +'<input type="checkbox" checked data-qi="'+i+'"/>'
+        +'<span style="flex:1">['+escapeHtml(q.topic)+'] '+escapeHtml(q.stem)
+        +'<br/><span style="color:var(--sub)">'+optTxt
+        +'（答：'+q.answer+'）</span></span></label>';
+    });
+  }
+  if(!(d.module_updates||[]).length&&!(d.new_questions||[]).length){
+    html+='<div class="hint" style="margin-top:10px">AI 未从该资料中提取到新的培训内容。</div>';
+    box.innerHTML=html; return;
+  }
+  html+='<div style="margin-top:14px"><button class="btn" onclick="applyMaterial()">✅ 应用勾选项到编辑器</button></div>'
+    +'<details style="margin-top:10px"><summary style="font-size:12px;color:var(--sub);cursor:pointer">查看解析出的原文</summary>'
+    +'<div style="white-space:pre-wrap;font-size:12px;color:var(--sub);border:1px dashed var(--line);border-radius:8px;padding:10px;margin-top:6px;max-height:220px;overflow:auto">'+escapeHtml(d.text_preview)+'</div></details>';
+  box.innerHTML=html;
+}
+
+function applyMaterial(){
+  if(!matSuggest)return;
+  if(!onbDoc||!quizDoc){toast('编辑器尚未加载完成');return;}
+  let addItems=0, addQs=0;
+  document.querySelectorAll('#matResult input[data-mi]').forEach(cb=>{
+    if(!cb.checked)return;
+    const mu=matSuggest.module_updates[+cb.dataset.mi];
+    const item=mu.new_items[+cb.dataset.ij];
+    const m=(onbDoc.modules||[]).find(x=>x.id===mu.module_id);
+    if(m&&!(m.content||[]).includes(item)){m.content.push(item);addItems++;}
+  });
+  document.querySelectorAll('#matResult input[data-qi]').forEach(cb=>{
+    if(!cb.checked)return;
+    const q=matSuggest.new_questions[+cb.dataset.qi];
+    if(!quizDoc.questions.some(x=>x.stem===q.stem)){quizDoc.questions.push(q);addQs++;}
+  });
+  renderOnbEditor(); renderQuizEditor();
+  toast('已应用：新增内容 '+addItems+' 条、新题 '+addQs+' 道。请检查后点「保存」按钮！');
+  $('onbEditList').scrollIntoView({behavior:'smooth'});
 }
 
 loadStats();

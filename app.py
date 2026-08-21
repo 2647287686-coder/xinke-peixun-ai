@@ -128,35 +128,81 @@ def retrieve(query, k=TOP_K, max_per_source=2):
 _onb_modules = []
 _quiz_bank = []
 
-def load_onboarding():
-    """加载「新员工必读」板块结构化内容（kb/onboarding/onboarding-modules.json）。"""
-    global _onb_modules
+# 必读板块与题库支持后台在线编辑：内容存 Setting 表（DB 持久化，部署不丢），
+# 仓库内 JSON 文件仅作首次种子，一旦后台保存过则以 DB 为准。
+ONB_DB_KEY = "onboarding_modules"
+QUIZ_DB_KEY = "quiz_bank"
+_onb_doc = {}    # 完整文档（含 meta）
+_quiz_doc = {}
+_onb_source = "file"
+_quiz_source = "file"
+
+def _read_setting(key):
+    """读 Setting（自动兼容无 app context 的启动场景）"""
     try:
-        if os.path.exists(ONB_DIR):
-            with open(os.path.join(ONB_DIR, "onboarding-modules.json"), encoding="utf-8") as fh:
-                data = json.load(fh)
-            _onb_modules = data.get("modules", [])
-            print(f"[ONB] 已加载 {len(_onb_modules)} 个必读板块")
+        with app.app_context():
+            row = db.session.get(Setting, key)
+            return row.value if row else None
+    except Exception:
+        return None
+
+def _save_setting(key, value):
+    with app.app_context():
+        row = db.session.get(Setting, key)
+        if row:
+            row.value = value
         else:
-            _onb_modules = []
-    except Exception as e:
-        print(f"[ONB] 加载失败: {e}")
-        _onb_modules = []
+            db.session.add(Setting(key=key, value=value))
+        db.session.commit()
+
+def load_onboarding():
+    """加载「新员工必读」板块：DB（后台编辑版）优先，仓库文件兜底。"""
+    global _onb_modules, _onb_doc, _onb_source
+    data = None
+    src = "db"
+    raw = _read_setting(ONB_DB_KEY)
+    if raw:
+        try:
+            data = json.loads(raw)
+        except Exception:
+            data = None
+    if data is None:
+        src = "file"
+        try:
+            path = os.path.join(ONB_DIR, "onboarding-modules.json")
+            if os.path.exists(path):
+                with open(path, encoding="utf-8") as fh:
+                    data = json.load(fh)
+        except Exception as e:
+            print(f"[ONB] 文件加载失败: {e}")
+    _onb_doc = data or {}
+    _onb_modules = _onb_doc.get("modules", []) if isinstance(_onb_doc, dict) else []
+    _onb_source = src
+    print(f"[ONB] 已加载 {len(_onb_modules)} 个必读板块（来源：{src}）")
 
 def load_quiz():
-    """加载考试题库（kb/quiz/quiz-bank.json）。"""
-    global _quiz_bank
-    try:
-        if os.path.exists(QUIZ_BANK_FILE):
-            with open(QUIZ_BANK_FILE, encoding="utf-8") as fh:
-                data = json.load(fh)
-            _quiz_bank = data.get("questions", [])
-            print(f"[QUIZ] 已加载 {len(_quiz_bank)} 道题")
-        else:
-            _quiz_bank = []
-    except Exception as e:
-        print(f"[QUIZ] 加载失败: {e}")
-        _quiz_bank = []
+    """加载考试题库：DB（后台编辑版）优先，仓库文件兜底。"""
+    global _quiz_bank, _quiz_doc, _quiz_source
+    data = None
+    src = "db"
+    raw = _read_setting(QUIZ_DB_KEY)
+    if raw:
+        try:
+            data = json.loads(raw)
+        except Exception:
+            data = None
+    if data is None:
+        src = "file"
+        try:
+            if os.path.exists(QUIZ_BANK_FILE):
+                with open(QUIZ_BANK_FILE, encoding="utf-8") as fh:
+                    data = json.load(fh)
+        except Exception as e:
+            print(f"[QUIZ] 文件加载失败: {e}")
+    _quiz_doc = data or {}
+    _quiz_bank = _quiz_doc.get("questions", []) if isinstance(_quiz_doc, dict) else []
+    _quiz_source = src
+    print(f"[QUIZ] 已加载 {len(_quiz_bank)} 道题（来源：{src}）")
 
 # 各主题抽题配额（合计 20 题），确保多角度均衡
 QUIZ_QUOTA = {"产品知识": 5, "抖音来客平台": 3, "门店准入": 3,
@@ -366,6 +412,29 @@ def stream_deepseek(messages):
     except Exception as e:
         print(f"[DEEPSEEK] 异常: {e}")
         return None
+
+def deepseek_json(messages, max_tokens=6000):
+    """非流式调用 DeepSeek，要求返回 JSON 并解析（用于后台资料解析/生成题目）。"""
+    if not DEEPSEEK_API_KEY:
+        return None, "未配置 DEEPSEEK_API_KEY"
+    try:
+        r = requests.post(
+            f"{DEEPSEEK_BASE_URL}/chat/completions",
+            headers={"Authorization": f"Bearer {DEEPSEEK_API_KEY}",
+                     "Content-Type": "application/json"},
+            json={"model": DEEPSEEK_MODEL, "messages": messages,
+                  "temperature": 0.2, "max_tokens": max_tokens,
+                  "response_format": {"type": "json_object"}},
+            timeout=240,
+        )
+        if r.status_code != 200:
+            return None, f"DeepSeek 返回 {r.status_code}：{r.text[:200]}"
+        text = r.json()["choices"][0]["message"]["content"]
+        return json.loads(text), None
+    except json.JSONDecodeError:
+        return None, "模型输出不是合法 JSON，请重试"
+    except Exception as e:
+        return None, f"DeepSeek 调用异常：{e}"
 
 def fallback_answer(q, kb_chunks, web_results):
     parts = ["（演示模式：未配置 DeepSeek API Key，以下为检索到的内部资料片段）\n"]
@@ -1246,6 +1315,250 @@ def admin_kb_reload():
         return jsonify({"ok": True, "kb_chunks": len(_chunks)})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+# ============ 后台：必读板块 / 题库在线编辑 + 资料上传AI解析 ============
+QUIZ_TOPICS = ["产品知识", "抖音来客平台", "门店准入", "入驻流程", "品牌授权", "入驻审核"]
+
+def _validate_onb_doc(doc):
+    """校验必读板块文档结构，返回 (规范后文档, 错误信息)。"""
+    if not isinstance(doc, dict) or not isinstance(doc.get("modules"), list):
+        return None, "格式错误：缺少 modules 数组"
+    if not doc["modules"]:
+        return None, "至少保留 1 个必读板块"
+    seen = set()
+    for i, m in enumerate(doc["modules"]):
+        mid = str(m.get("id", "")).strip()
+        title = str(m.get("title", "")).strip()
+        if not mid or not title:
+            return None, f"第 {i+1} 个板块缺少 id 或标题"
+        if mid in seen:
+            return None, f"板块 id 重复：{mid}"
+        seen.add(mid)
+        if not isinstance(m.get("content"), list):
+            return None, f"板块「{title}」的 content 必须是数组（每行一条）"
+    return doc, None
+
+def _validate_quiz_doc(doc):
+    """校验题库文档结构，返回 (规范后文档, 错误信息)。
+    题目 schema：{id, topic, stem, options:{A:...,B:...}, answer, explanation?}"""
+    if not isinstance(doc, dict) or not isinstance(doc.get("questions"), list):
+        return None, "格式错误：缺少 questions 数组"
+    if not doc["questions"]:
+        return None, "至少保留 1 道题"
+    seen = set()
+    for i, q in enumerate(doc["questions"]):
+        stem = str(q.get("stem", "")).strip()
+        opts = q.get("options")
+        ans = str(q.get("answer", "")).strip().upper()
+        topic = str(q.get("topic", "")).strip()
+        if not stem:
+            return None, f"第 {i+1} 题缺少题干"
+        if not isinstance(opts, dict) or len(opts) < 2:
+            return None, f"「{stem[:15]}…」选项至少 2 个"
+        if ans not in opts:
+            return None, f"「{stem[:15]}…」答案必须是 {'/'.join(opts.keys())}"
+        if not topic:
+            return None, f"「{stem[:15]}…」缺少主题"
+        qid = q.get("id")
+        if qid in seen:
+            return None, f"题目 id 重复：{qid}"
+        seen.add(qid)
+    return doc, None
+
+def _save_onb_doc(doc):
+    _save_setting(ONB_DB_KEY, json.dumps(doc, ensure_ascii=False))
+    load_onboarding()
+
+def _save_quiz_doc(doc):
+    _save_setting(QUIZ_DB_KEY, json.dumps(doc, ensure_ascii=False))
+    load_quiz()
+
+
+@app.route("/api/admin/onboarding")
+@admin_required
+def admin_onboarding_get():
+    return jsonify({"doc": _onb_doc, "source": _onb_source})
+
+
+@app.route("/api/admin/onboarding", methods=["POST"])
+@admin_required
+def admin_onboarding_save():
+    data = request.get_json(silent=True) or {}
+    doc = data.get("doc")
+    doc, err = _validate_onb_doc(doc)
+    if err:
+        return jsonify({"error": err}), 400
+    try:
+        _save_onb_doc(doc)
+        return jsonify({"ok": True, "modules": len(_onb_modules), "source": _onb_source})
+    except Exception as e:
+        return jsonify({"error": f"保存失败：{e}"}), 500
+
+
+@app.route("/api/admin/quiz")
+@admin_required
+def admin_quiz_get():
+    return jsonify({"doc": _quiz_doc, "source": _quiz_source})
+
+
+@app.route("/api/admin/quiz", methods=["POST"])
+@admin_required
+def admin_quiz_save():
+    data = request.get_json(silent=True) or {}
+    doc = data.get("doc")
+    doc, err = _validate_quiz_doc(doc)
+    if err:
+        return jsonify({"error": err}), 400
+    try:
+        _save_quiz_doc(doc)
+        return jsonify({"ok": True, "questions": len(_quiz_bank), "source": _quiz_source})
+    except Exception as e:
+        return jsonify({"error": f"保存失败：{e}"}), 500
+
+
+# ---- 资料文件解析（后台上传 → 纯文本） ----
+def _extract_file_text(stream, filename):
+    """解析上传的表格/文档为纯文本。返回 (文本, 错误)。"""
+    import io
+    name = (filename or "").lower()
+    try:
+        raw = stream.read()
+        if name.endswith((".txt", ".md")):
+            for enc in ("utf-8", "gbk", "utf-16"):
+                try:
+                    return raw.decode(enc), None
+                except Exception:
+                    continue
+            return None, "无法识别文件编码"
+        if name.endswith(".csv"):
+            import csv as _csv
+            for enc in ("utf-8-sig", "gbk"):
+                try:
+                    text = raw.decode(enc)
+                    break
+                except Exception:
+                    text = None
+            if text is None:
+                return None, "CSV 编码无法识别"
+            rows = list(_csv.reader(io.StringIO(text)))
+            lines = [" | ".join(str(c).strip() for c in row) for row in rows
+                     if any(str(c).strip() for c in row)]
+            return "\n".join(lines), None
+        if name.endswith((".xlsx", ".xlsm")):
+            import openpyxl
+            wb = openpyxl.load_workbook(io.BytesIO(raw), data_only=True)
+            out = []
+            for sn in wb.sheetnames:
+                ws = wb[sn]
+                out.append(f"【工作表：{sn}】")
+                for row in ws.iter_rows(values_only=True):
+                    cells = ["" if c is None else str(c).strip() for c in row]
+                    if any(cells):
+                        out.append(" | ".join(cells))
+            return "\n".join(out), None
+        if name.endswith(".docx"):
+            from docx import Document
+            d = Document(io.BytesIO(raw))
+            out = [p.text.strip() for p in d.paragraphs if p.text.strip()]
+            for tb in d.tables:
+                for row in tb.rows:
+                    cells = [c.text.strip() for c in row.cells]
+                    if any(cells):
+                        out.append(" | ".join(cells))
+            return "\n".join(out), None
+        if name.endswith(".pdf"):
+            try:
+                from pypdf import PdfReader
+            except ImportError:
+                return None, "暂不支持 PDF，请先转为 Word/Excel/TXT 再上传"
+            reader = PdfReader(io.BytesIO(raw))
+            out = []
+            for pg in reader.pages:
+                t = (pg.extract_text() or "").strip()
+                if t:
+                    out.append(t)
+            return "\n".join(out), None
+        return None, f"暂不支持该格式（{filename}），支持：xlsx / csv / docx / pdf / txt / md"
+    except Exception as e:
+        return None, f"解析失败：{e}"
+
+
+@app.route("/api/admin/material/analyze", methods=["POST"])
+@admin_required
+def admin_material_analyze():
+    """上传资料文件 → 解析文本 → AI 生成「必读新增内容 + 新题目」建议（不落库，先预览）。"""
+    f = request.files.get("file")
+    if not f or not f.filename:
+        return jsonify({"error": "请选择要上传的文件"}), 400
+    text, err = _extract_file_text(f.stream, f.filename)
+    if err:
+        return jsonify({"error": err}), 400
+    text = (text or "").strip()
+    if len(text) < 30:
+        return jsonify({"error": "解析到的内容太少（不足 30 字），请检查文件"}), 400
+    material = text[:15000]
+    # 现有内容摘要给模型，避免生成重复内容
+    mod_brief = "\n".join(
+        f"- 板块「{m['id']}｜{m['title']}」共 {len(m.get('content', []))} 条：" +
+        "；".join(c[:40] for c in m.get("content", [])[:3]) + "…"
+        for m in _onb_modules)
+    q_brief = "\n".join(f"- [{q.get('topic')}] {q.get('question', '')[:40]}"
+                        for q in _quiz_bank)
+    sys_prompt = (
+        "你是喜客丸（养生肉丸品牌）拓店岗培训内容运营。公司上传了一份新培训资料，"
+        "请基于资料内容，为「新员工必读板块」和「入职考试题库」生成增量更新建议。\n"
+        "要求：\n"
+        "1. 只提取资料中【新的、对拓店新人有价值】的信息；与现有内容重复的不要生成。\n"
+        "2. module_updates：按资料内容归入最合适的现有板块（用现有 module_id）；"
+        "每条 new_item 是一行完整、可直接给新人阅读的知识条目，以【小标题】开头，简洁具体。\n"
+        "3. new_questions：生成 3~6 道单项选择题，考资料中的关键知识点；"
+        "topic 必须从 [" + "、".join(QUIZ_TOPICS) + "] 中选择；"
+        "options 为 3~4 个选项文本（不含字母前缀）；answer 是正确选项字母；"
+        "explanation 一句话说明。不要与现有题目重复。\n"
+        "4. 若资料内容与培训无关（如聊天记录、无关表格），两项都返回空数组。\n"
+        '输出 JSON：{"module_updates":[{"module_id":"...","new_items":["..."]}],'
+        '"new_questions":[{"topic":"...","stem":"...","options":["..."],"answer":"B","explanation":"..."}]}'
+    )
+    user_prompt = (f"【现有必读板块】\n{mod_brief}\n\n【现有题库题目】\n{q_brief}\n\n"
+                   f"【上传的资料《{f.filename}》解析文本】\n{material}")
+    result, err = deepseek_json([
+        {"role": "system", "content": sys_prompt},
+        {"role": "user", "content": user_prompt},
+    ])
+    if err:
+        return jsonify({"error": err}), 500
+    # 规范化 + 为新题分配 id
+    mod_updates = []
+    valid_ids = {m["id"] for m in _onb_modules}
+    for mu in (result.get("module_updates") or []):
+        mid = mu.get("module_id")
+        items = [str(x).strip() for x in (mu.get("new_items") or []) if str(x).strip()]
+        if mid in valid_ids and items:
+            mod_updates.append({"module_id": mid, "new_items": items})
+    next_id = max((q.get("id", 0) for q in _quiz_bank if isinstance(q.get("id"), int)),
+                  default=0) + 1
+    new_questions = []
+    for q in (result.get("new_questions") or []):
+        # AI 可能输出列表或字典两种 options 形式，统一归一化为 {A:...,B:...}
+        raw_opts = q.get("options")
+        if isinstance(raw_opts, dict):
+            opts = [str(v).strip() for _, v in sorted(raw_opts.items()) if str(v).strip()]
+        else:
+            opts = [str(o).strip() for o in (raw_opts or []) if str(o).strip()]
+        ans = str(q.get("answer", "")).strip().upper()
+        stem = str(q.get("stem") or q.get("question") or "").strip()
+        topic = str(q.get("topic", "")).strip()
+        letters = [chr(65 + j) for j in range(len(opts))]
+        if len(opts) < 3 or ans not in letters or not stem or topic not in QUIZ_TOPICS:
+            continue
+        new_questions.append({"id": next_id, "topic": topic, "stem": stem,
+                              "options": dict(zip(letters, opts)), "answer": ans,
+                              "explanation": str(q.get("explanation", "")).strip()})
+        next_id += 1
+    return jsonify({"filename": f.filename, "chars": len(text),
+                    "text_preview": text[:1200],
+                    "module_updates": mod_updates, "new_questions": new_questions})
 
 
 if __name__ == "__main__":
