@@ -69,10 +69,6 @@
   .msg.bot a{color:var(--brand)}
   .msg.bot code{background:#f0f1f3;padding:1px 4px;border-radius:4px;font-size:13px}
   .msg.bot pre{background:#f0f1f3;padding:10px;border-radius:8px;overflow-x:auto}
-  .sources{margin-top:8px;display:flex;flex-wrap:wrap;gap:6px}
-  .tag{font-size:11px;background:#fff2ef;color:var(--brand-d);border:1px solid #f6d6cf;
-    padding:2px 8px;border-radius:20px}
-  .tag.web{background:#eef5ff;color:#2b6fd6;border-color:#d6e4fb}
   .typing{display:inline-flex;gap:4px;padding:4px 2px}
   .typing i{width:6px;height:6px;border-radius:50%;background:var(--sub);animation:bl 1s infinite}
   .typing i:nth-child(2){animation-delay:.2s}.typing i:nth-child(3){animation-delay:.4s}
@@ -240,8 +236,6 @@
 
   <div id="toolbar">
     <button class="tool" id="tRegen"><span class="ic">🔄</span>重新生成</button>
-    <button class="tool" id="tExport"><span class="ic">📤</span>导出对话</button>
-    <button class="tool" id="tSrc"><span class="ic">📚</span>显示参考</button>
     <button class="tool" id="tClear"><span class="ic">🗑️</span>清空对话</button>
     <button class="tool" id="tScript"><span class="ic">💬</span>场景话术</button>
     <button class="tool" id="tFlow"><span class="ic">🪜</span>流程步骤</button>
@@ -318,7 +312,7 @@ const send=document.getElementById('send');
 const chips=document.getElementById('chips');
 const toolbar=document.getElementById('toolbar');
 // 工具栏默认展开；如需折叠可手动 toolbar.classList.toggle('open')
-let busy=false, lastQ='', showSrc=false;
+let busy=false, lastQ='';
 
 marked.setOptions({breaks:true});
 
@@ -373,14 +367,6 @@ function addBot(){
   chat.scrollTop=chat.scrollHeight;
   return d;
 }
-function ensureSources(d){
-  const old=d._bubble.querySelector('.sources'); if(old) old.remove();
-  if(!d._src) return;
-  const wrap=document.createElement('div'); wrap.className='sources';
-  (d._src.kb||[]).forEach(s=>{const t=document.createElement('span');t.className='tag';t.textContent='📚 '+s;wrap.appendChild(t);});
-  (d._src.web||[]).forEach(s=>{const t=document.createElement('span');t.className='tag web';t.textContent='🌐 '+s;wrap.appendChild(t);});
-  if(wrap.children.length) d._bubble.appendChild(wrap);
-}
 
 /* ---------- 答案反馈 👍/👎 ---------- */
 function addFeedbackBtns(acts, logId){
@@ -432,7 +418,6 @@ async function stream(bot, question){
         else if(ev==='token'){acc+=data; bot._text=acc; render(bot._bubble,acc);}
         else if(ev==='done'){
           bot._logId=data.log_id||null;
-          if(showSrc&&srcData) ensureSources(bot);
           if(data.log_id) addFeedbackBtns(bot._acts, data.log_id);
         }
         else if(ev==='error'){acc+='\n⚠️ '+data.message; bot._text=acc; render(bot._bubble,acc);}
@@ -465,25 +450,6 @@ document.getElementById('tClear').onclick=()=>{
   const e=document.createElement('div'); e.className='empty'; e.id='empty';
   e.innerHTML='<div class="big">👋</div><div>对话已清空</div><div style="margin-top:6px">工作上有不懂的，继续问我吧</div>';
   chat.appendChild(e); lastQ=''; toast('已清空对话');
-};
-document.getElementById('tExport').onclick=()=>{
-  const msgs=[...chat.querySelectorAll('.msg')].map(m=>{
-    const role=m.classList.contains('user')?'我':'小黄';
-    const txt=m.classList.contains('user') ? m.textContent : (m._text||'');
-    return role+'：'+txt;
-  });
-  if(!msgs.length){ toast('暂无对话内容'); return; }
-  const text='【'+currentName+' 对话记录】\n'+new Date().toLocaleString()+'\n\n'+msgs.join('\n\n');
-  copyText(text,'全部对话');
-};
-document.getElementById('tSrc').onclick=(ev)=>{
-  showSrc=!showSrc;
-  ev.currentTarget.classList.toggle('active',showSrc);
-  document.querySelectorAll('.msg.bot').forEach(d=>{
-    const old=d._bubble.querySelector('.sources'); if(old) old.remove();
-    if(showSrc && d._src) ensureSources(d);
-  });
-  toast(showSrc?'已显示参考来源':'已隐藏参考来源');
 };
 
 /* ---------- 生成器：场景话术 / 流程步骤 / 产品速查 ---------- */
